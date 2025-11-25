@@ -48,14 +48,19 @@ fi
 # Stage all changes
 git add -A
 
-# Create commit
-if git rev-parse --verify HEAD~0 >/dev/null 2>&1; then
-  # dist branch exists, create merge commit
-  git commit -m "Build $DIST_BRANCH from $SOURCE_SHA" || true
-  git merge --no-ff -m "Merge built $DIST_BRANCH from main@$SOURCE_SHA" "$SOURCE_SHA" -s ours || true
+# Create commit with proper parent(s)
+TREE=$(git write-tree)
+
+if DIST_PARENT=$(git rev-parse --verify HEAD 2>/dev/null); then
+  # dist branch exists: create merge commit with two parents
+  # Parent 1: previous dist commit
+  # Parent 2: source commit from main
+  COMMIT=$(git commit-tree "$TREE" -p "$DIST_PARENT" -p "$SOURCE_SHA" -m "Build $DIST_BRANCH from $SOURCE_SHA")
 else
-  # First dist commit
-  git commit -m "Initial $DIST_BRANCH build from $SOURCE_SHA"
+  # First dist commit: single parent (source commit)
+  COMMIT=$(git commit-tree "$TREE" -p "$SOURCE_SHA" -m "Initial $DIST_BRANCH build from $SOURCE_SHA")
 fi
+
+git reset --hard "$COMMIT"
 
 echo "$DIST_BRANCH branch built successfully"
