@@ -14,16 +14,11 @@ This repo provides a reusable GitHub Actions workflow that automates building np
 
 ### Key Components
 
-1. **Reusable Workflow** (`.github/workflows/build-dist.yml`)
-   - Parameterized workflow that other repos can call
-   - Handles checkout, build, and push to dist branch
+1. **Composite Action** (`action.yml`)
+   - Single-file action that other repos can call via `uses: runsascoded/gh-pnpm-dist@main`
+   - Handles checkout, setup, build, commit, and push to dist branch
    - Configurable: node version, pnpm version, build command, dist branch name
-
-2. **Build Script** (`scripts/build-dist.sh`)
-   - Core logic for building and committing to dist branch
-   - Preserves `package.json` from previous dist commit (dist branch manages its own metadata)
-   - Creates merge commits linking dist branch to source commits
-   - Respects `DIST_BRANCH` environment variable
+   - Build script inlined in the action (no separate script file needed)
 
 ### Dist Branch Pattern
 
@@ -71,8 +66,6 @@ Where X, Y, Z are merge commits with two parents:
 
 ## Usage
 
-### As a Caller
-
 ```yaml
 # .github/workflows/build-dist.yml
 name: Build dist branch
@@ -86,16 +79,17 @@ on:
 
 jobs:
   build-dist:
-    uses: runsascoded/gh-pnpm-dist/.github/workflows/build-dist.yml@main
-    with:
-      source_ref: ${{ inputs.source_ref }}
-      pnpm_version: '10'
-      node_version: '20'
-      build_command: 'pnpm run build'
-      dist_branch: 'dist'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: runsascoded/gh-pnpm-dist@main
+        with:
+          source_ref: ${{ inputs.source_ref }}
+          pnpm_version: '10'
 ```
 
-### Workflow Inputs
+### Inputs
 
 | Input | Description | Default |
 |-------|-------------|---------|
@@ -108,10 +102,10 @@ jobs:
 ## Implementation Tasks
 
 ### Phase 1: Core Functionality
-- [ ] Copy workflow and script from use-url-params
-- [ ] Create initial README with usage instructions
+- [x] Create composite action with inlined build script
+- [x] Create initial README with usage instructions
+- [x] Document initial dist branch setup process
 - [ ] Test with use-url-params as the first consumer
-- [ ] Document initial dist branch setup process
 
 ### Phase 2: Parameterization
 - [ ] Add `dist_dir` parameter (currently hardcoded to `dist/`)
@@ -123,7 +117,6 @@ jobs:
 - [ ] Add comprehensive error messages
 - [ ] Document edge cases and troubleshooting
 - [ ] Create example repos demonstrating usage
-- [ ] Consider: should script inline into workflow for single-file distribution?
 
 ## Design Decisions
 
@@ -136,13 +129,12 @@ The `package.json` on dist has different paths than main (`./index.js` vs `./dis
 
 This makes the "parallel lineage" pattern more explicit and maintainable.
 
-### Why fetch script from dist branch?
+### Why inline the script in action.yml?
 
-The build script lives on the dist branch because:
-1. It's part of the dist infrastructure
-2. Keeps main branch clean of deployment-specific code
-3. Allows updating the script without touching main
-4. Script updates automatically available to all consumers using `@main`
+The build script is inlined in `action.yml` because:
+1. Single-file distribution - callers just need `uses: runsascoded/gh-pnpm-dist@main`
+2. No bootstrap problem - callers don't need to set up a script on their dist branch first
+3. Script updates automatically available to all consumers using `@main`
 
 ### Why use merge commits?
 
@@ -158,7 +150,7 @@ Merge commits create explicit connections between dist builds and source commits
 
 ## Notes for Future Sessions
 
-- The script currently hardcodes `dist/` as the build output directory
+- The action currently hardcodes `dist/` as the build output directory
 - Consider whether to support multiple build outputs (e.g., both ESM and CJS in separate dirs)
 - Investigate if GitHub's artifact retention could be used instead of dist branches
 - Consider adding support for `package.json` path transformation as an option

@@ -1,0 +1,64 @@
+name: 'Build pnpm dist branch'
+description: 'Build npm package and push to dist branch'
+
+inputs:
+  source_ref:
+    description: 'Source ref to build from (commit SHA, branch, or tag)'
+    required: false
+    default: 'main'
+  node_version:
+    description: 'Node.js version to use'
+    required: false
+    default: '20'
+  pnpm_version:
+    description: 'pnpm version to use'
+    required: false
+    default: '9'
+  build_command:
+    description: 'Build command to run'
+    required: false
+    default: 'pnpm run build'
+  dist_branch:
+    description: 'Name of dist branch'
+    required: false
+    default: 'dist'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.source_ref }}
+        fetch-depth: 0
+
+    - name: Get source commit SHA
+      id: source
+      shell: bash
+      run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+    - uses: pnpm/action-setup@v4
+      with:
+        version: ${{ inputs.pnpm_version }}
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node_version }}
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Build
+      shell: bash
+      run: ${{ inputs.build_command }}
+
+    - name: Build and commit to dist branch
+      shell: bash
+      env:
+        DIST_BRANCH: ${{ inputs.dist_branch }}
+      run: ${{ github.action_path }}/scripts/build-dist.sh ${{ steps.source.outputs.sha }}
+
+    - name: Push dist branch
+      shell: bash
+      run: git push origin ${{ inputs.dist_branch }} --force-with-lease

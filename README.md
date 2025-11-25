@@ -1,11 +1,11 @@
 # gh-pnpm-dist
 
-Reusable GitHub Actions workflow for building and maintaining npm package distribution branches.
+GitHub Action for building and maintaining npm package distribution branches.
 
 ## Quick Start
 
 ```yaml
-# .github/workflows/build-dist.yml in your repo
+# .github/workflows/build-dist.yml
 name: Build dist branch
 on:
   workflow_dispatch:
@@ -16,10 +16,14 @@ on:
 
 jobs:
   build-dist:
-    uses: runsascoded/gh-pnpm-dist/.github/workflows/build-dist.yml@main
-    with:
-      source_ref: ${{ inputs.source_ref }}
-      pnpm_version: '10'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: runsascoded/gh-pnpm-dist@main
+        with:
+          source_ref: ${{ inputs.source_ref }}
+          pnpm_version: '10'
 ```
 
 ## Initial Setup
@@ -63,11 +67,22 @@ git push origin dist
 
 ## What It Does
 
-- Checks out your source code
-- Runs your build command (`pnpm run build`)
-- Fetches the build script from the dist branch
+- Checks out your source code at the specified ref
+- Sets up pnpm and Node.js
+- Installs dependencies and runs your build command
 - Commits build artifacts to dist branch with merge commits
-- Preserves dist branch's package.json (does not auto-generate)
+- Preserves dist branch's `package.json` (does not auto-generate)
+- Pushes to the dist branch
+
+## Inputs
+
+| Input | Description | Default |
+|-------|-------------|---------|
+| `source_ref` | Source ref to build from | `'main'` |
+| `node_version` | Node.js version | `'20'` |
+| `pnpm_version` | pnpm version | `'9'` |
+| `build_command` | Build command to run | `'pnpm run build'` |
+| `dist_branch` | Name of dist branch | `'dist'` |
 
 ## License
 
