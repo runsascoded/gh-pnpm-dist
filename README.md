@@ -23,7 +23,6 @@ jobs:
       - uses: runsascoded/gh-pnpm-dist@main
         with:
           source_ref: ${{ inputs.source_ref }}
-          pnpm_version: '10'
 ```
 
 ## Initial Setup
@@ -80,7 +79,7 @@ git push origin dist
 |-------|-------------|---------|
 | `source_ref` | Source ref to build from | `'main'` |
 | `node_version` | Node.js version | `'20'` |
-| `pnpm_version` | pnpm version | `'9'` |
+| `pnpm_version` | pnpm version | `'10'` |
 | `build_command` | Build command to run | `'pnpm run build'` |
 | `dist_branch` | Name of dist branch | `'dist'` |
 
