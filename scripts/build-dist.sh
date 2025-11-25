@@ -6,12 +6,17 @@ DIST_BRANCH="${DIST_BRANCH:-dist}"
 
 echo "Building $DIST_BRANCH from source commit: $SOURCE_SHA"
 
+# Save source package.json before switching branches (for initial setup)
+cp package.json package.json.source
+
 # Remove node_modules before checkout (it would conflict)
 rm -rf node_modules
 
 # Fetch dist branch if it exists
+DIST_EXISTS=false
 if git fetch origin "$DIST_BRANCH:$DIST_BRANCH" 2>/dev/null; then
   git checkout "$DIST_BRANCH"
+  DIST_EXISTS=true
 else
   git checkout --orphan "$DIST_BRANCH"
 fi
@@ -27,21 +32,32 @@ fi
 
 # Remove everything except dist/
 git rm -rf . 2>/dev/null || true
-git clean -fdx -e dist -e package.json.dist
+git clean -fdx -e dist -e package.json.dist -e package.json.source
 
 # Move dist contents to root
 mv dist/* . 2>/dev/null || true
 rmdir dist 2>/dev/null || true
 
-# Restore dist branch's package.json
+# Restore or create package.json
 if [ -f package.json.dist ]; then
+  # Use existing dist branch package.json
   mv package.json.dist package.json
+  rm -f package.json.source
+elif [ -f package.json.source ]; then
+  # First run: transform source package.json by removing "dist/" from paths
+  echo "Creating initial package.json for $DIST_BRANCH branch..."
+  jq '
+    walk(
+      if type == "string" then
+        gsub("\\./dist/"; "./") | gsub("dist/"; "./")
+      else
+        .
+      end
+    )
+  ' package.json.source > package.json
+  rm -f package.json.source
 else
-  echo "ERROR: No package.json found on $DIST_BRANCH branch"
-  echo "This action requires an existing $DIST_BRANCH branch with a package.json"
-  echo "For initial setup, manually create the dist branch with package.json paths adjusted:"
-  echo "  main: ./index.cjs (not ./dist/index.cjs)"
-  echo "  module: ./index.js (not ./dist/index.js)"
+  echo "ERROR: No package.json found"
   exit 1
 fi
 
