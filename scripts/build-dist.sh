@@ -43,9 +43,12 @@ if [ -f package.json.dist ]; then
   mv package.json.dist package.json
   rm -f package.json.source
 elif [ -f package.json.source ]; then
-  # First run: transform source package.json by removing "dist/" from paths
+  # First run: transform source package.json for dist branch
   echo "Creating initial package.json for $DIST_BRANCH branch..."
   jq '
+    # Remove fields not needed on dist branch
+    del(.files, .scripts, .devDependencies) |
+    # Transform paths: ./dist/... -> ./...
     walk(
       if type == "string" then
         gsub("\\./dist/"; "./") | gsub("dist/"; "./")
