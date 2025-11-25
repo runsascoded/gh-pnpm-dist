@@ -17,6 +17,10 @@ DIST_EXISTS=false
 if git fetch origin "$DIST_BRANCH:$DIST_BRANCH" 2>/dev/null; then
   git checkout "$DIST_BRANCH"
   DIST_EXISTS=true
+  # Save existing package.json from dist branch
+  if [ -f package.json ]; then
+    cp package.json package.json.dist
+  fi
 else
   git checkout --orphan "$DIST_BRANCH"
 fi
@@ -24,11 +28,6 @@ fi
 # Configure git
 git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
-
-# Save existing package.json from dist branch (if it exists)
-if [ -f package.json ]; then
-  cp package.json package.json.dist
-fi
 
 # Remove everything except dist/
 git rm -rf . 2>/dev/null || true
