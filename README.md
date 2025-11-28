@@ -20,7 +20,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: runsascoded/gh-pnpm-dist@main
+      - uses: runsascoded/gh-pnpm-dist@v1
         with:
           source_ref: ${{ inputs.source_ref }}
 ```
