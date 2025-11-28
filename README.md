@@ -46,6 +46,21 @@ On first run (no dist branch exists), it auto-generates `package.json` by transf
 | `build_command` | Build command to run | `'pnpm run build'` |
 | `dist_branch` | Name of dist branch | `'dist'` |
 
+## Used By
+
+- [use-url-params] ([workflow][use-url-params-workflow])
+- [og-lambda] ([workflow][og-lambda-workflow])
+
+## See Also
+
+- [gh-pnpm-release] - Sibling action for npm publishing and GitHub releases
+
+[use-url-params]: https://github.com/runsascoded/use-url-params
+[use-url-params-workflow]: https://github.com/runsascoded/use-url-params/blob/main/.github/workflows/build-dist.yml
+[og-lambda]: https://github.com/runsascoded/og-lambda
+[og-lambda-workflow]: https://github.com/runsascoded/og-lambda/blob/main/.github/workflows/build-dist.yml
+[gh-pnpm-release]: https://github.com/runsascoded/gh-pnpm-release
+
 ## License
 
 MIT
