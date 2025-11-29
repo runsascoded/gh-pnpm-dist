@@ -3,11 +3,24 @@ set -e
 
 SOURCE_SHA="${1:-$(git rev-parse HEAD)}"
 DIST_BRANCH="${DIST_BRANCH:-dist}"
+SOURCE_DIRS="${SOURCE_DIRS:-}"
 
 echo "Building $DIST_BRANCH from source commit: $SOURCE_SHA"
 
 # Save source package.json before switching branches (for initial setup)
 cp package.json package.json.source
+
+# If SOURCE_DIRS is set, save those directories
+if [ -n "$SOURCE_DIRS" ]; then
+  mkdir -p /tmp/source-dirs
+  IFS=',' read -ra DIRS <<< "$SOURCE_DIRS"
+  for dir in "${DIRS[@]}"; do
+    dir=$(echo "$dir" | xargs)  # trim whitespace
+    if [ -d "$dir" ]; then
+      cp -r "$dir" /tmp/source-dirs/
+    fi
+  done
+fi
 
 # Remove node_modules before checkout (it would conflict)
 rm -rf node_modules
@@ -29,13 +42,18 @@ fi
 git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
 
-# Remove everything except dist/
+# Remove everything
 git rm -rf . 2>/dev/null || true
-git clean -fdx -e dist -e package.json.dist -e package.json.source
+git clean -fdx -e package.json.dist -e package.json.source
 
-# Move dist contents to root
-mv dist/* . 2>/dev/null || true
-rmdir dist 2>/dev/null || true
+if [ -n "$SOURCE_DIRS" ]; then
+  # SOURCE_DIRS mode: restore saved directories
+  cp -r /tmp/source-dirs/* .
+else
+  # Default mode: move dist contents to root
+  mv dist/* . 2>/dev/null || true
+  rmdir dist 2>/dev/null || true
+fi
 
 # Restore or create package.json
 if [ -f package.json.dist ]; then
@@ -45,18 +63,24 @@ if [ -f package.json.dist ]; then
 elif [ -f package.json.source ]; then
   # First run: transform source package.json for dist branch
   echo "Creating initial package.json for $DIST_BRANCH branch..."
-  jq '
-    # Remove fields not needed on dist branch
-    del(.files, .scripts, .devDependencies) |
-    # Transform paths: ./dist/... -> ./...
-    walk(
-      if type == "string" then
-        gsub("\\./dist/"; "./") | gsub("dist/"; "./")
-      else
-        .
-      end
-    )
-  ' package.json.source > package.json
+  if [ -n "$SOURCE_DIRS" ]; then
+    # SOURCE_DIRS mode: just remove dev fields, no path transformation
+    jq 'del(.files, .scripts, .devDependencies)' package.json.source > package.json
+  else
+    # Default mode: remove dev fields and transform dist/ paths
+    jq '
+      # Remove fields not needed on dist branch
+      del(.files, .scripts, .devDependencies) |
+      # Transform paths: ./dist/... -> ./...
+      walk(
+        if type == "string" then
+          gsub("\\./dist/"; "./") | gsub("dist/"; "./")
+        else
+          .
+        end
+      )
+    ' package.json.source > package.json
+  fi
   rm -f package.json.source
 else
   echo "ERROR: No package.json found"

@@ -45,6 +45,21 @@ On first run (no dist branch exists), it auto-generates `package.json` by transf
 | `pnpm_version` | pnpm version | `'10'` |
 | `build_command` | Build command to run | `'pnpm run build'` |
 | `dist_branch` | Name of dist branch | `'dist'` |
+| `source_dirs` | Comma-separated directories to include (e.g., `"src,types"`) | `''` |
+
+### `source_dirs` mode
+
+For packages that don't use a `dist/` output folder (e.g., pure ESM packages with generated types), use `source_dirs` to specify which directories to include:
+
+```yaml
+- uses: runsascoded/gh-pnpm-dist@main
+  with:
+    source_ref: master
+    build_command: pnpm run build:types
+    source_dirs: src,types
+```
+
+This preserves the specified directories as-is instead of moving `dist/*` to root.
 
 ## Used By
 
