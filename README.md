@@ -64,6 +64,7 @@ This preserves the specified directories as-is instead of moving `dist/*` to roo
 ## Used By
 
 - [use-url-params] ([workflow][use-url-params-workflow])
+- [use-hotkeys] ([workflow][use-hotkeys-workflow])
 - [og-lambda] ([workflow][og-lambda-workflow])
 - [hyparquet] ([workflow][hyparquet-workflow]) - uses `source_dirs` mode
 
@@ -73,6 +74,8 @@ This preserves the specified directories as-is instead of moving `dist/*` to roo
 
 [use-url-params]: https://github.com/runsascoded/use-url-params
 [use-url-params-workflow]: https://github.com/runsascoded/use-url-params/blob/main/.github/workflows/build-dist.yml
+[use-hotkeys]: https://github.com/runsascoded/use-hotkeys
+[use-hotkeys-workflow]: https://github.com/runsascoded/use-hotkeys/blob/main/.github/workflows/build-dist.yml
 [og-lambda]: https://github.com/runsascoded/og-lambda
 [og-lambda-workflow]: https://github.com/runsascoded/og-lambda/blob/main/.github/workflows/build-dist.yml
 [hyparquet]: https://github.com/runsascoded/hyparquet
