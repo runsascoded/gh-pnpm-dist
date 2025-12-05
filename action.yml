@@ -3,9 +3,9 @@ description: 'Build npm package and push to dist branch'
 
 inputs:
   source_ref:
-    description: 'Source ref to build from (commit SHA, branch, or tag)'
+    description: 'Source ref to build from (defaults to repository default branch)'
     required: false
-    default: 'main'
+    default: ''
   node_version:
     description: 'Node.js version to use'
     required: false
@@ -36,13 +36,15 @@ runs:
   steps:
     - uses: actions/checkout@v4
       with:
-        ref: ${{ inputs.source_ref }}
+        ref: ${{ inputs.source_ref || github.event.repository.default_branch }}
         fetch-depth: 0
 
-    - name: Get source commit SHA
-      id: source
+    - name: Get package and source info
+      id: info
       shell: bash
-      run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+      run: |
+        echo "source_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        echo "pkg_name=$(jq -r .name package.json)" >> $GITHUB_OUTPUT
 
     - uses: pnpm/action-setup@v4
       with:
@@ -67,8 +69,43 @@ runs:
         DIST_BRANCH: ${{ inputs.dist_branch }}
         BUILD_DIR: ${{ inputs.build_dir }}
         SOURCE_DIRS: ${{ inputs.source_dirs }}
-      run: ${{ github.action_path }}/scripts/build-dist.sh ${{ steps.source.outputs.sha }}
+      run: ${{ github.action_path }}/scripts/build-dist.sh ${{ steps.info.outputs.source_sha }}
+
+    - name: Get dist SHA
+      id: dist
+      shell: bash
+      run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
     - name: Push dist branch
       shell: bash
       run: git push origin ${{ inputs.dist_branch }} --force-with-lease
+
+    - name: Output dist branch info
+      shell: bash
+      run: |
+        PKG_NAME="${{ steps.info.outputs.pkg_name }}"
+        DIST_BRANCH="${{ inputs.dist_branch }}"
+        DIST_SHA="${{ steps.dist.outputs.sha }}"
+        SOURCE_SHA="${{ steps.info.outputs.source_sha }}"
+        REPO="${{ github.repository }}"
+
+        echo ""
+        echo "=========================================="
+        echo "✅ Dist branch updated successfully!"
+        echo "=========================================="
+        echo ""
+        echo "📦 Package: ${PKG_NAME}"
+        echo "🌿 Branch: ${DIST_BRANCH}"
+        echo "🔗 Dist SHA: ${DIST_SHA}"
+        echo "📝 Source SHA: ${SOURCE_SHA}"
+        echo ""
+        echo "To use this version:"
+        echo "  pnpm add github:${REPO}#${DIST_SHA}"
+        echo ""
+        echo "Or with pnpm-dep-source:"
+        echo "  pds github <dep> ${DIST_BRANCH}"
+        echo ""
+
+        # Add annotations that appear on Summary page
+        echo "::notice title=🌿 Dist Branch Updated::${DIST_BRANCH} @ ${DIST_SHA:0:7}"
+        echo "::notice title=📦 Install Command::pnpm add github:${REPO}#${DIST_SHA}"

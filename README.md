@@ -4,16 +4,25 @@ GitHub Action for building and maintaining npm package distribution branches.
 
 ## Quick Start
 
+### Option 1: Reusable Workflow (recommended)
+
 ```yaml
 # .github/workflows/build-dist.yml
 name: Build dist branch
 on:
   workflow_dispatch:
-    inputs:
-      source_ref:
-        description: 'Source ref to build from'
-        default: 'main'
+jobs:
+  build-dist:
+    uses: runsascoded/gh-pnpm-dist/.github/workflows/build-dist.yml@v1
+```
 
+### Option 2: Composite Action
+
+```yaml
+# .github/workflows/build-dist.yml
+name: Build dist branch
+on:
+  workflow_dispatch:
 jobs:
   build-dist:
     runs-on: ubuntu-latest
@@ -21,30 +30,46 @@ jobs:
       contents: write
     steps:
       - uses: runsascoded/gh-pnpm-dist@v1
-        with:
-          source_ref: ${{ inputs.source_ref }}
 ```
 
 ## How It Works
 
-1. Checks out your source code at the specified ref
+1. Checks out your source code at the specified ref (or repository default branch)
 2. Sets up pnpm and Node.js, installs dependencies
 3. Runs your build command (default: `pnpm run build`)
 4. Creates/updates the dist branch with built artifacts at root
 5. Creates merge commits linking dist to source (two parents: previous dist + source)
 6. Pushes to the dist branch
+7. Outputs the dist SHA and install commands (in logs and as workflow annotations)
 
 On first run (no dist branch exists), it auto-generates `package.json` by transforming paths from source (`./dist/index.js` → `./index.js`). On subsequent runs, it preserves the dist branch's `package.json`.
+
+## Using the dist branch
+
+After the workflow runs, you can install the package directly from the dist branch:
+
+```bash
+pnpm add github:owner/repo#<dist-sha>
+```
+
+Or use [pnpm-dep-source] to manage switching between local, GitHub, and npm sources:
+
+```bash
+pds github <dep> dist
+```
+
+[pnpm-dep-source]: https://github.com/runsascoded/pnpm-dep-source
 
 ## Inputs
 
 | Input | Description | Default |
 |-------|-------------|---------|
-| `source_ref` | Source ref to build from | `'main'` |
+| `source_ref` | Source ref to build from | Repository default branch |
 | `node_version` | Node.js version | `'20'` |
 | `pnpm_version` | pnpm version | `'10'` |
 | `build_command` | Build command to run | `'pnpm run build'` |
 | `dist_branch` | Name of dist branch | `'dist'` |
+| `build_dir` | Directory created by build command | `'dist'` |
 | `source_dirs` | Comma-separated directories to include (e.g., `"src,types"`) | `''` |
 
 ### `source_dirs` mode

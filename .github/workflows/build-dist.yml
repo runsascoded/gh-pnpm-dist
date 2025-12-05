@@ -1,0 +1,48 @@
+name: Build dist branch
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: 'Source ref to build from (defaults to repository default branch)'
+        type: string
+        default: ''
+      node_version:
+        description: 'Node.js version to use'
+        type: string
+        default: '20'
+      pnpm_version:
+        description: 'pnpm version to use'
+        type: string
+        default: '10'
+      build_command:
+        description: 'Build command to run'
+        type: string
+        default: 'pnpm run build'
+      dist_branch:
+        description: 'Name of dist branch'
+        type: string
+        default: 'dist'
+      build_dir:
+        description: 'Directory created by build command'
+        type: string
+        default: 'dist'
+      source_dirs:
+        description: 'Comma-separated directories to include (instead of build_dir)'
+        type: string
+        default: ''
+
+jobs:
+  build-dist:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: runsascoded/gh-pnpm-dist@v1
+        with:
+          source_ref: ${{ inputs.source_ref }}
+          node_version: ${{ inputs.node_version }}
+          pnpm_version: ${{ inputs.pnpm_version }}
+          build_command: ${{ inputs.build_command }}
+          dist_branch: ${{ inputs.dist_branch }}
+          build_dir: ${{ inputs.build_dir }}
+          source_dirs: ${{ inputs.source_dirs }}
