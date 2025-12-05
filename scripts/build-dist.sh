@@ -8,22 +8,27 @@ SOURCE_DIRS="${SOURCE_DIRS:-}"
 
 echo "Building $DIST_BRANCH from source commit: $SOURCE_SHA"
 
+# Use local .tmp directory for staging files across branch switch
+TMPDIR=".tmp-gh-pnpm-dist"
+rm -rf "$TMPDIR"
+mkdir -p "$TMPDIR"
+
 # Save source package.json before switching branches (for initial setup)
 cp package.json package.json.source
 
-# Save build output dir to /tmp before checkout (git clean would remove it)
+# Save build output dir before checkout (git clean would remove it)
 if [ -d "$BUILD_DIR" ]; then
-  cp -r "$BUILD_DIR" /tmp/build-output
+  cp -r "$BUILD_DIR" "$TMPDIR/build-output"
 fi
 
 # If SOURCE_DIRS is set, save those directories
 if [ -n "$SOURCE_DIRS" ]; then
-  mkdir -p /tmp/source-dirs
+  mkdir -p "$TMPDIR/source-dirs"
   IFS=',' read -ra DIRS <<< "$SOURCE_DIRS"
   for dir in "${DIRS[@]}"; do
     dir=$(echo "$dir" | xargs)  # trim whitespace
     if [ -d "$dir" ]; then
-      cp -r "$dir" /tmp/source-dirs/
+      cp -r "$dir" "$TMPDIR/source-dirs/"
     fi
   done
 fi
@@ -48,23 +53,25 @@ fi
 git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
 
-# Remove everything
+# Remove everything (preserve our tmpdir and package.json backups)
 git rm -rf . 2>/dev/null || true
-git clean -fdx -e package.json.dist -e package.json.source
+git clean -fdx -e "$TMPDIR" -e package.json.dist -e package.json.source
 
 if [ -n "$SOURCE_DIRS" ]; then
   # SOURCE_DIRS mode: restore saved directories
-  cp -r /tmp/source-dirs/* .
+  cp -r "$TMPDIR/source-dirs"/* .
 else
-  # Default mode: restore build output from /tmp and move contents to root
-  if [ -d /tmp/build-output ]; then
-    cp -r /tmp/build-output/* .
-    rm -rf /tmp/build-output
+  # Default mode: restore build output and move contents to root
+  if [ -d "$TMPDIR/build-output" ]; then
+    cp -r "$TMPDIR/build-output"/* .
   else
     echo "ERROR: No $BUILD_DIR/ directory found"
     exit 1
   fi
 fi
+
+# Clean up tmpdir
+rm -rf "$TMPDIR"
 
 # Restore or create package.json
 if [ -f package.json.dist ]; then
