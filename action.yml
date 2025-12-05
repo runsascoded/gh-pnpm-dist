@@ -22,6 +22,10 @@ inputs:
     description: 'Name of dist branch'
     required: false
     default: 'dist'
+  build_dir:
+    description: 'Directory created by build command (moved to root on dist branch)'
+    required: false
+    default: 'dist'
   source_dirs:
     description: 'Comma-separated list of directories to include (e.g., "src,types"). If set, these are preserved as-is instead of moving dist/* to root.'
     required: false
@@ -61,6 +65,7 @@ runs:
       shell: bash
       env:
         DIST_BRANCH: ${{ inputs.dist_branch }}
+        BUILD_DIR: ${{ inputs.build_dir }}
         SOURCE_DIRS: ${{ inputs.source_dirs }}
       run: ${{ github.action_path }}/scripts/build-dist.sh ${{ steps.source.outputs.sha }}
 

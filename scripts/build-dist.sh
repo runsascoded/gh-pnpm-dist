@@ -3,6 +3,7 @@ set -e
 
 SOURCE_SHA="${1:-$(git rev-parse HEAD)}"
 DIST_BRANCH="${DIST_BRANCH:-dist}"
+BUILD_DIR="${BUILD_DIR:-dist}"
 SOURCE_DIRS="${SOURCE_DIRS:-}"
 
 echo "Building $DIST_BRANCH from source commit: $SOURCE_SHA"
@@ -10,9 +11,9 @@ echo "Building $DIST_BRANCH from source commit: $SOURCE_SHA"
 # Save source package.json before switching branches (for initial setup)
 cp package.json package.json.source
 
-# Save dist/ to /tmp before checkout (git clean would remove it)
-if [ -d dist ]; then
-  cp -r dist /tmp/dist-build
+# Save build output dir to /tmp before checkout (git clean would remove it)
+if [ -d "$BUILD_DIR" ]; then
+  cp -r "$BUILD_DIR" /tmp/build-output
 fi
 
 # If SOURCE_DIRS is set, save those directories
@@ -55,12 +56,12 @@ if [ -n "$SOURCE_DIRS" ]; then
   # SOURCE_DIRS mode: restore saved directories
   cp -r /tmp/source-dirs/* .
 else
-  # Default mode: restore dist/ from /tmp and move contents to root
-  if [ -d /tmp/dist-build ]; then
-    cp -r /tmp/dist-build/* .
-    rm -rf /tmp/dist-build
+  # Default mode: restore build output from /tmp and move contents to root
+  if [ -d /tmp/build-output ]; then
+    cp -r /tmp/build-output/* .
+    rm -rf /tmp/build-output
   else
-    echo "ERROR: No dist/ directory found"
+    echo "ERROR: No $BUILD_DIR/ directory found"
     exit 1
   fi
 fi
@@ -77,14 +78,14 @@ elif [ -f package.json.source ]; then
     # SOURCE_DIRS mode: just remove dev fields, no path transformation
     jq 'del(.files, .scripts, .devDependencies)' package.json.source > package.json
   else
-    # Default mode: remove dev fields and transform dist/ paths
-    jq '
+    # Default mode: remove dev fields and transform build_dir paths
+    jq --arg build_dir "$BUILD_DIR" '
       # Remove fields not needed on dist branch
       del(.files, .scripts, .devDependencies) |
-      # Transform paths: ./dist/... -> ./...
+      # Transform paths: ./$build_dir/... -> ./...
       walk(
         if type == "string" then
-          gsub("\\./dist/"; "./") | gsub("dist/"; "./")
+          gsub("\\./\($build_dir)/"; "./") | gsub("\($build_dir)/"; "./")
         else
           .
         end
