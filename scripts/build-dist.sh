@@ -10,6 +10,11 @@ echo "Building $DIST_BRANCH from source commit: $SOURCE_SHA"
 # Save source package.json before switching branches (for initial setup)
 cp package.json package.json.source
 
+# Save dist/ to /tmp before checkout (git clean would remove it)
+if [ -d dist ]; then
+  cp -r dist /tmp/dist-build
+fi
+
 # If SOURCE_DIRS is set, save those directories
 if [ -n "$SOURCE_DIRS" ]; then
   mkdir -p /tmp/source-dirs
@@ -50,9 +55,14 @@ if [ -n "$SOURCE_DIRS" ]; then
   # SOURCE_DIRS mode: restore saved directories
   cp -r /tmp/source-dirs/* .
 else
-  # Default mode: move dist contents to root
-  mv dist/* . 2>/dev/null || true
-  rmdir dist 2>/dev/null || true
+  # Default mode: restore dist/ from /tmp and move contents to root
+  if [ -d /tmp/dist-build ]; then
+    cp -r /tmp/dist-build/* .
+    rm -rf /tmp/dist-build
+  else
+    echo "ERROR: No dist/ directory found"
+    exit 1
+  fi
 fi
 
 # Restore or create package.json
