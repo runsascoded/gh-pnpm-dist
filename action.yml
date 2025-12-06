@@ -30,6 +30,10 @@ inputs:
     description: 'Comma-separated list of directories to include (e.g., "src,types"). If set, these are preserved as-is instead of moving dist/* to root.'
     required: false
     default: ''
+  version_suffix:
+    description: 'Add version suffix with git SHA (e.g., 0.1.0-dist.abc1234). Set to "false" to disable.'
+    required: false
+    default: 'true'
 
 runs:
   using: 'composite'
@@ -69,6 +73,7 @@ runs:
         DIST_BRANCH: ${{ inputs.dist_branch || 'dist' }}
         BUILD_DIR: ${{ inputs.build_dir }}
         SOURCE_DIRS: ${{ inputs.source_dirs }}
+        VERSION_SUFFIX: ${{ inputs.version_suffix }}
       run: ${{ github.action_path }}/scripts/build-dist.sh ${{ steps.info.outputs.source_sha }}
 
     - name: Get dist SHA

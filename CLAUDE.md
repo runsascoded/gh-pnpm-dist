@@ -97,6 +97,9 @@ jobs:
 | `pnpm_version` | pnpm version | `'10'` |
 | `build_command` | Build command to run | `'pnpm run build'` |
 | `dist_branch` | Name of dist branch | `'dist'` |
+| `build_dir` | Directory created by build command (moved to root on dist branch) | `'dist'` |
+| `source_dirs` | Comma-separated directories to include (preserves structure) | `''` |
+| `version_suffix` | Add `-dist.<sha>` suffix to version | `'true'` |
 
 ## Implementation Tasks
 
@@ -107,7 +110,9 @@ jobs:
 - [ ] Test with use-url-params as the first consumer
 
 ### Phase 2: Parameterization
-- [ ] Add `dist_dir` parameter (currently hardcoded to `dist/`)
+- [x] Add `build_dir` parameter (was hardcoded to `dist/`)
+- [x] Add `source_dirs` parameter for preserving directory structure
+- [x] Add `version_suffix` parameter for `-dist.<sha>` versioning
 - [ ] Consider `include_files` / `exclude_files` patterns
 - [ ] Support other package managers (npm, yarn)?
 - [ ] Add validation for required parameters
@@ -149,7 +154,6 @@ Merge commits create explicit connections between dist builds and source commits
 
 ## Notes for Future Sessions
 
-- The action currently hardcodes `dist/` as the build output directory
 - Consider whether to support multiple build outputs (e.g., both ESM and CJS in separate dirs)
 - Investigate if GitHub's artifact retention could be used instead of dist branches
-- Consider adding support for `package.json` path transformation as an option
+- The `package.json` path transformation now happens automatically on first run

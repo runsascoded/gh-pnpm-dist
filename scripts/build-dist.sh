@@ -5,16 +5,21 @@ SOURCE_SHA="${1:-$(git rev-parse HEAD)}"
 DIST_BRANCH="${DIST_BRANCH:-dist}"
 BUILD_DIR="${BUILD_DIR:-dist}"
 SOURCE_DIRS="${SOURCE_DIRS:-}"
+VERSION_SUFFIX="${VERSION_SUFFIX:-true}"
 
 echo "Building $DIST_BRANCH from source commit: $SOURCE_SHA"
+
+# Compute short SHA for version suffix
+SHORT_SHA="${SOURCE_SHA:0:7}"
 
 # Use local .tmp directory for staging files across branch switch
 TMPDIR=".tmp-gh-pnpm-dist"
 rm -rf "$TMPDIR"
 mkdir -p "$TMPDIR"
 
-# Save source package.json before switching branches (for initial setup)
+# Save source package.json before switching branches (for initial setup and version)
 cp package.json package.json.source
+SOURCE_VERSION=$(jq -r .version package.json)
 
 # Save build output dir before checkout (git clean would remove it)
 if [ -d "$BUILD_DIR" ]; then
@@ -103,6 +108,14 @@ elif [ -f package.json.source ]; then
 else
   echo "ERROR: No package.json found"
   exit 1
+fi
+
+# Update version with dist suffix if enabled
+if [ "$VERSION_SUFFIX" = "true" ]; then
+  DIST_VERSION="${SOURCE_VERSION}-dist.${SHORT_SHA}"
+  echo "Setting version to $DIST_VERSION"
+  jq --arg v "$DIST_VERSION" '.version = $v' package.json > package.json.tmp
+  mv package.json.tmp package.json
 fi
 
 # Stage all changes
