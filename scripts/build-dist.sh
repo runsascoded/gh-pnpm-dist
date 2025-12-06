@@ -121,17 +121,25 @@ fi
 # Stage all changes
 git add -A
 
+# Get package info for commit message
+PKG_NAME=$(jq -r .name package.json)
+PKG_VERSION=$(jq -r .version package.json)
+
 # Create commit with proper parent(s)
 TREE=$(git write-tree)
+
+COMMIT_MSG="${PKG_NAME}@${PKG_VERSION}
+
+Built from ${SOURCE_SHA}"
 
 if DIST_PARENT=$(git rev-parse --verify HEAD 2>/dev/null); then
   # dist branch exists: create merge commit with two parents
   # Parent 1: previous dist commit
   # Parent 2: source commit from main
-  COMMIT=$(git commit-tree "$TREE" -p "$DIST_PARENT" -p "$SOURCE_SHA" -m "Build $DIST_BRANCH from $SOURCE_SHA")
+  COMMIT=$(git commit-tree "$TREE" -p "$DIST_PARENT" -p "$SOURCE_SHA" -m "$COMMIT_MSG")
 else
   # First dist commit: single parent (source commit)
-  COMMIT=$(git commit-tree "$TREE" -p "$SOURCE_SHA" -m "Initial $DIST_BRANCH build from $SOURCE_SHA")
+  COMMIT=$(git commit-tree "$TREE" -p "$SOURCE_SHA" -m "$COMMIT_MSG")
 fi
 
 git reset --hard "$COMMIT"
