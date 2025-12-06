@@ -66,7 +66,7 @@ runs:
     - name: Build and commit to dist branch
       shell: bash
       env:
-        DIST_BRANCH: ${{ inputs.dist_branch }}
+        DIST_BRANCH: ${{ inputs.dist_branch || 'dist' }}
         BUILD_DIR: ${{ inputs.build_dir }}
         SOURCE_DIRS: ${{ inputs.source_dirs }}
       run: ${{ github.action_path }}/scripts/build-dist.sh ${{ steps.info.outputs.source_sha }}
@@ -78,13 +78,13 @@ runs:
 
     - name: Push dist branch
       shell: bash
-      run: git push origin ${{ inputs.dist_branch }} --force-with-lease
+      run: git push origin ${{ inputs.dist_branch || 'dist' }} --force-with-lease
 
     - name: Output dist branch info
       shell: bash
       run: |
         PKG_NAME="${{ steps.info.outputs.pkg_name }}"
-        DIST_BRANCH="${{ inputs.dist_branch }}"
+        DIST_BRANCH="${{ inputs.dist_branch || 'dist' }}"
         DIST_SHA="${{ steps.dist.outputs.sha }}"
         SOURCE_SHA="${{ steps.info.outputs.source_sha }}"
         REPO="${{ github.repository }}"
