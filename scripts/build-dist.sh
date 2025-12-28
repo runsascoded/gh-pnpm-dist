@@ -5,6 +5,7 @@ SOURCE_SHA="${1:-$(git rev-parse HEAD)}"
 DIST_BRANCH="${DIST_BRANCH:-dist}"
 BUILD_DIR="${BUILD_DIR:-dist}"
 SOURCE_DIRS="${SOURCE_DIRS:-}"
+EXTRA_FILES="${EXTRA_FILES:-}"
 VERSION_SUFFIX="${VERSION_SUFFIX:-true}"
 
 echo "Building $DIST_BRANCH from source commit: $SOURCE_SHA"
@@ -34,6 +35,23 @@ if [ -n "$SOURCE_DIRS" ]; then
     dir=$(echo "$dir" | xargs)  # trim whitespace
     if [ -d "$dir" ]; then
       cp -r "$dir" "$TMPDIR/source-dirs/"
+    fi
+  done
+fi
+
+# If EXTRA_FILES is set, save those files (preserving directory structure)
+if [ -n "$EXTRA_FILES" ]; then
+  mkdir -p "$TMPDIR/extra-files"
+  IFS=',' read -ra FILES <<< "$EXTRA_FILES"
+  for file in "${FILES[@]}"; do
+    file=$(echo "$file" | xargs)  # trim whitespace
+    if [ -f "$file" ]; then
+      # Preserve directory structure
+      mkdir -p "$TMPDIR/extra-files/$(dirname "$file")"
+      cp "$file" "$TMPDIR/extra-files/$file"
+    elif [ -d "$file" ]; then
+      mkdir -p "$TMPDIR/extra-files/$(dirname "$file")"
+      cp -r "$file" "$TMPDIR/extra-files/$file"
     fi
   done
 fi
@@ -75,15 +93,28 @@ else
   fi
 fi
 
+# Restore extra files (if any)
+if [ -d "$TMPDIR/extra-files" ] && [ -n "$(ls -A "$TMPDIR/extra-files" 2>/dev/null)" ]; then
+  cp -r "$TMPDIR/extra-files"/* .
+fi
+
 # Clean up tmpdir
 rm -rf "$TMPDIR"
 
 # Restore or create package.json
 if [ -f package.json.dist ]; then
   # Merge: use dist structure but update key fields from source
-  # Fields like name, description, keywords, repository should always come from source
-  jq -s '
+  # Metadata and exports should always come from source
+  jq -s --arg build_dir "$BUILD_DIR" '
     .[0] as $dist | .[1] as $src |
+    # Transform exports paths: ./$build_dir/... -> ./...
+    ($src.exports // {} | walk(
+      if type == "string" then
+        gsub("\\./\($build_dir)/"; "./") | gsub("\($build_dir)/"; "./")
+      else
+        .
+      end
+    )) as $transformed_exports |
     $dist * {
       name: $src.name,
       description: $src.description,
@@ -92,7 +123,8 @@ if [ -f package.json.dist ]; then
       author: $src.author,
       license: $src.license,
       homepage: $src.homepage,
-      bugs: $src.bugs
+      bugs: $src.bugs,
+      exports: $transformed_exports
     } | with_entries(select(.value != null))
   ' package.json.dist package.json.source > package.json
   rm -f package.json.dist package.json.source

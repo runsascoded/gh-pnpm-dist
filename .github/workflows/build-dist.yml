@@ -30,6 +30,10 @@ on:
         description: 'Comma-separated directories to include (instead of build_dir)'
         type: string
         default: ''
+      extra_files:
+        description: 'Comma-separated additional files to include alongside build output'
+        type: string
+        default: ''
 
 jobs:
   build-dist:
@@ -46,3 +50,4 @@ jobs:
           dist_branch: ${{ inputs.dist_branch }}
           build_dir: ${{ inputs.build_dir }}
           source_dirs: ${{ inputs.source_dirs }}
+          extra_files: ${{ inputs.extra_files }}
