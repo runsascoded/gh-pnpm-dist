@@ -80,9 +80,22 @@ rm -rf "$TMPDIR"
 
 # Restore or create package.json
 if [ -f package.json.dist ]; then
-  # Use existing dist branch package.json
-  mv package.json.dist package.json
-  rm -f package.json.source
+  # Merge: use dist structure but update key fields from source
+  # Fields like name, description, keywords, repository should always come from source
+  jq -s '
+    .[0] as $dist | .[1] as $src |
+    $dist * {
+      name: $src.name,
+      description: $src.description,
+      keywords: $src.keywords,
+      repository: $src.repository,
+      author: $src.author,
+      license: $src.license,
+      homepage: $src.homepage,
+      bugs: $src.bugs
+    } | with_entries(select(.value != null))
+  ' package.json.dist package.json.source > package.json
+  rm -f package.json.dist package.json.source
 elif [ -f package.json.source ]; then
   # First run: transform source package.json for dist branch
   echo "Creating initial package.json for $DIST_BRANCH branch..."
