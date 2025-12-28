@@ -38,6 +38,18 @@ inputs:
     description: 'Add version suffix with git SHA (e.g., 0.1.0-dist.abc1234). Set to "false" to disable.'
     required: false
     default: 'true'
+  pkg_include:
+    description: 'Comma-separated list of package.json fields to include from source (default: name,description,keywords,repository,author,license,homepage,bugs,exports)'
+    required: false
+    default: ''
+  pkg_exclude:
+    description: 'Comma-separated list of package.json fields to exclude from merge (overrides include list)'
+    required: false
+    default: ''
+  pkg_kvs:
+    description: 'JSON object of key-value overrides for package.json (e.g., {"name":"custom-name"})'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -79,6 +91,9 @@ runs:
         SOURCE_DIRS: ${{ inputs.source_dirs }}
         EXTRA_FILES: ${{ inputs.extra_files }}
         VERSION_SUFFIX: ${{ inputs.version_suffix }}
+        PKG_INCLUDE: ${{ inputs.pkg_include }}
+        PKG_EXCLUDE: ${{ inputs.pkg_exclude }}
+        PKG_KVS: ${{ inputs.pkg_kvs }}
       run: ${{ github.action_path }}/scripts/build-dist.sh ${{ steps.info.outputs.source_sha }}
 
     - name: Get dist SHA

@@ -34,6 +34,18 @@ on:
         description: 'Comma-separated additional files to include alongside build output'
         type: string
         default: ''
+      pkg_include:
+        description: 'Comma-separated list of package.json fields to include from source'
+        type: string
+        default: ''
+      pkg_exclude:
+        description: 'Comma-separated list of package.json fields to exclude from merge'
+        type: string
+        default: ''
+      pkg_kvs:
+        description: 'JSON object of key-value overrides for package.json'
+        type: string
+        default: ''
 
 jobs:
   build-dist:
@@ -51,3 +63,6 @@ jobs:
           build_dir: ${{ inputs.build_dir }}
           source_dirs: ${{ inputs.source_dirs }}
           extra_files: ${{ inputs.extra_files }}
+          pkg_include: ${{ inputs.pkg_include }}
+          pkg_exclude: ${{ inputs.pkg_exclude }}
+          pkg_kvs: ${{ inputs.pkg_kvs }}

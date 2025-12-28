@@ -7,6 +7,12 @@ BUILD_DIR="${BUILD_DIR:-dist}"
 SOURCE_DIRS="${SOURCE_DIRS:-}"
 EXTRA_FILES="${EXTRA_FILES:-}"
 VERSION_SUFFIX="${VERSION_SUFFIX:-true}"
+PKG_INCLUDE="${PKG_INCLUDE:-}"
+PKG_EXCLUDE="${PKG_EXCLUDE:-}"
+PKG_KVS="${PKG_KVS:-}"
+
+# Default fields to include from source package.json
+DEFAULT_PKG_FIELDS="name,description,keywords,repository,author,license,homepage,bugs,exports"
 
 echo "Building $DIST_BRANCH from source commit: $SOURCE_SHA"
 
@@ -101,11 +107,28 @@ fi
 # Clean up tmpdir
 rm -rf "$TMPDIR"
 
+# Compute effective field list (include - exclude)
+if [ -n "$PKG_INCLUDE" ]; then
+  FIELDS_TO_INCLUDE="$PKG_INCLUDE"
+else
+  FIELDS_TO_INCLUDE="$DEFAULT_PKG_FIELDS"
+fi
+
+# Remove excluded fields
+if [ -n "$PKG_EXCLUDE" ]; then
+  IFS=',' read -ra EXCLUDE_ARR <<< "$PKG_EXCLUDE"
+  for exclude in "${EXCLUDE_ARR[@]}"; do
+    exclude=$(echo "$exclude" | xargs)
+    FIELDS_TO_INCLUDE=$(echo "$FIELDS_TO_INCLUDE" | sed "s/$exclude//g" | sed 's/,,/,/g' | sed 's/^,//' | sed 's/,$//')
+  done
+fi
+
+echo "Fields to include from source: $FIELDS_TO_INCLUDE"
+
 # Restore or create package.json
 if [ -f package.json.dist ]; then
   # Merge: use dist structure but update key fields from source
-  # Metadata and exports should always come from source
-  jq -s --arg build_dir "$BUILD_DIR" '
+  jq -s --arg build_dir "$BUILD_DIR" --arg fields "$FIELDS_TO_INCLUDE" '
     .[0] as $dist | .[1] as $src |
     # Transform exports paths: ./$build_dir/... -> ./...
     ($src.exports // {} | walk(
@@ -115,17 +138,18 @@ if [ -f package.json.dist ]; then
         .
       end
     )) as $transformed_exports |
-    $dist * {
-      name: $src.name,
-      description: $src.description,
-      keywords: $src.keywords,
-      repository: $src.repository,
-      author: $src.author,
-      license: $src.license,
-      homepage: $src.homepage,
-      bugs: $src.bugs,
-      exports: $transformed_exports
-    } | with_entries(select(.value != null))
+    # Split fields into array and build merge object
+    ($fields | split(",") | map(gsub("^\\s+|\\s+$"; ""))) as $field_list |
+    (reduce $field_list[] as $field ({}; . + (
+      if $field == "exports" then
+        {exports: $transformed_exports}
+      elif $src[$field] != null then
+        {($field): $src[$field]}
+      else
+        {}
+      end
+    ))) as $merge_obj |
+    $dist * $merge_obj | with_entries(select(.value != null))
   ' package.json.dist package.json.source > package.json
   rm -f package.json.dist package.json.source
 elif [ -f package.json.source ]; then
@@ -160,6 +184,13 @@ if [ "$VERSION_SUFFIX" = "true" ]; then
   DIST_VERSION="${SOURCE_VERSION}-dist.${SHORT_SHA}"
   echo "Setting version to $DIST_VERSION"
   jq --arg v "$DIST_VERSION" '.version = $v' package.json > package.json.tmp
+  mv package.json.tmp package.json
+fi
+
+# Apply key-value overrides if specified
+if [ -n "$PKG_KVS" ]; then
+  echo "Applying package.json overrides: $PKG_KVS"
+  jq --argjson kvs "$PKG_KVS" '. * $kvs' package.json > package.json.tmp
   mv package.json.tmp package.json
 fi
 
