@@ -53,7 +53,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: runsascoded/gh-pnpm-dist@v1
+      - uses: runsascoded/pnpm-dist@v1
         with:
           source_ref: ${{ inputs.source_ref }}
           node_version: ${{ inputs.node_version }}

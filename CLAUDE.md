@@ -1,4 +1,4 @@
-# gh-pnpm-dist
+# pnpm-dist
 
 Reusable GitHub Actions workflow for building and maintaining npm package distribution branches.
 
@@ -15,7 +15,7 @@ This repo provides a reusable GitHub Actions workflow that automates building np
 ### Key Components
 
 1. **Composite Action** (`action.yml`)
-   - Single-file action that other repos can call via `uses: runsascoded/gh-pnpm-dist@main`
+   - Single-file action that other repos can call via `uses: runsascoded/pnpm-dist@main`
    - Handles checkout, setup, build, commit, and push to dist branch
    - Configurable: node version, pnpm version, build command, dist branch name
    - Build script inlined in the action (no separate script file needed)
@@ -83,7 +83,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: runsascoded/gh-pnpm-dist@v1
+      - uses: runsascoded/pnpm-dist@v1
         with:
           source_ref: ${{ inputs.source_ref }}
 ```
@@ -136,7 +136,7 @@ This makes the "parallel lineage" pattern more explicit and maintainable.
 ### Why inline the script in action.yml?
 
 The build script is inlined in `action.yml` because:
-1. Single-file distribution - callers just need `uses: runsascoded/gh-pnpm-dist@main`
+1. Single-file distribution - callers just need `uses: runsascoded/pnpm-dist@main`
 2. No bootstrap problem - callers don't need to set up a script on their dist branch first
 3. Script updates automatically available to all consumers using `@main`
 

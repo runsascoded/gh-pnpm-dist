@@ -20,7 +20,7 @@ echo "Building $DIST_BRANCH from source commit: $SOURCE_SHA"
 SHORT_SHA="${SOURCE_SHA:0:7}"
 
 # Use local .tmp directory for staging files across branch switch
-TMPDIR=".tmp-gh-pnpm-dist"
+TMPDIR=".tmp-pnpm-dist"
 rm -rf "$TMPDIR"
 mkdir -p "$TMPDIR"
 
