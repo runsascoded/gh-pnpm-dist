@@ -96,8 +96,10 @@ This preserves the specified directories as-is instead of moving `dist/*` to roo
 
 ## See Also
 
-- [gh-pnpm-release] - Sibling action for npm publishing and GitHub releases
+- [npm-dist (GitLab)] - GitLab CI version of this tool
+- [pnpm-release] - Sibling action for npm publishing and GitHub releases
 
+[npm-dist (GitLab)]: https://gitlab.com/runsascoded/js/npm-dist
 [use-url-params]: https://github.com/runsascoded/use-url-params
 [use-url-params-workflow]: https://github.com/runsascoded/use-url-params/blob/main/.github/workflows/build-dist.yml
 [use-hotkeys]: https://github.com/runsascoded/use-hotkeys
@@ -106,7 +108,7 @@ This preserves the specified directories as-is instead of moving `dist/*` to roo
 [og-lambda-workflow]: https://github.com/runsascoded/og-lambda/blob/main/.github/workflows/build-dist.yml
 [hyparquet]: https://github.com/runsascoded/hyparquet
 [hyparquet-workflow]: https://github.com/runsascoded/hyparquet/blob/master/.github/workflows/build-dist.yml
-[gh-pnpm-release]: https://github.com/runsascoded/gh-pnpm-release
+[pnpm-release]: https://github.com/runsascoded/pnpm-release
 
 ## License
 
