@@ -1,4 +1,4 @@
-# pnpm-dist
+# npm-dist
 
 GitHub Action for building and maintaining npm package distribution branches.
 
@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 jobs:
   build-dist:
-    uses: runsascoded/pnpm-dist/.github/workflows/build-dist.yml@v1
+    uses: runsascoded/npm-dist/.github/workflows/build-dist.yml@v1
 ```
 
 ### Option 2: Composite Action
@@ -29,7 +29,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: runsascoded/pnpm-dist@v1
+      - uses: runsascoded/npm-dist@v1
 ```
 
 ## How It Works
@@ -78,7 +78,7 @@ pds github <dep> dist
 For packages that don't use a `dist/` output folder (e.g., pure ESM packages with generated types), use `source_dirs` to specify which directories to include:
 
 ```yaml
-- uses: runsascoded/pnpm-dist@main
+- uses: runsascoded/npm-dist@main
   with:
     source_ref: master
     build_command: pnpm run build:types
