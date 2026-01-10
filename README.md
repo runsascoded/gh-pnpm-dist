@@ -35,12 +35,13 @@ jobs:
 ## How It Works
 
 1. Checks out your source code at the specified ref (or repository default branch)
-2. Sets up pnpm and Node.js, installs dependencies
-3. Runs your build command (default: `pnpm run build`)
-4. Creates/updates the dist branch with built artifacts at root
-5. Creates merge commits linking dist to source (two parents: previous dist + source)
-6. Pushes to the dist branch
-7. Outputs the dist SHA and install commands (in logs and as workflow annotations)
+2. **Auto-detects package manager** from lock files (`pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `bun.lockb`)
+3. Sets up the detected package manager and Node.js, installs dependencies
+4. Runs your build command (default: `<detected-pm> run build`)
+5. Creates/updates the dist branch with built artifacts at root
+6. Creates merge commits linking dist to source (two parents: previous dist + source)
+7. Pushes to the dist branch
+8. Outputs the dist SHA and install commands (in logs and as workflow annotations)
 
 On first run (no dist branch exists), it auto-generates `package.json` by transforming paths from source (`./dist/index.js` → `./index.js`). On subsequent runs, it preserves the dist branch's `package.json`.
 
@@ -66,8 +67,8 @@ pds github <dep> dist
 |-------|-------------|---------|
 | `source_ref` | Source ref to build from | Repository default branch |
 | `node_version` | Node.js version | `'20'` |
-| `pnpm_version` | pnpm version | `'10'` |
-| `build_command` | Build command to run | `'pnpm run build'` |
+| `pnpm_version` | pnpm version (only if pnpm detected) | `'10'` |
+| `build_command` | Build command to run | Auto-detect |
 | `dist_branch` | Name of dist branch | `'dist'` |
 | `build_dir` | Directory created by build command | `'dist'` |
 | `source_dirs` | Comma-separated directories to include (e.g., `"src,types"`) | `''` |

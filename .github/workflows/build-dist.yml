@@ -11,13 +11,13 @@ on:
         type: string
         default: '20'
       pnpm_version:
-        description: 'pnpm version to use'
+        description: 'pnpm version to use (only if pnpm detected)'
         type: string
         default: '10'
       build_command:
-        description: 'Build command to run'
+        description: 'Build command to run (default: auto-detect)'
         type: string
-        default: 'pnpm run build'
+        default: ''
       dist_branch:
         description: 'Name of dist branch'
         type: string

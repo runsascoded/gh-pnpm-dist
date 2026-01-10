@@ -1,4 +1,4 @@
-name: 'Build pnpm dist branch'
+name: 'Build dist branch'
 description: 'Build npm package and push to dist branch'
 
 inputs:
@@ -11,13 +11,13 @@ inputs:
     required: false
     default: '20'
   pnpm_version:
-    description: 'pnpm version to use'
+    description: 'pnpm version to use (only used if pnpm detected)'
     required: false
     default: '10'
   build_command:
-    description: 'Build command to run'
+    description: 'Build command to run (default: auto-detect from package manager)'
     required: false
-    default: 'pnpm run build'
+    default: ''
   dist_branch:
     description: 'Name of dist branch'
     required: false
@@ -66,22 +66,49 @@ runs:
         echo "source_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
         echo "pkg_name=$(jq -r .name package.json)" >> $GITHUB_OUTPUT
 
-    - uses: pnpm/action-setup@v4
+        # Detect package manager from lock files
+        if [ -f "pnpm-lock.yaml" ]; then
+          echo "pm=pnpm" >> $GITHUB_OUTPUT
+        elif [ -f "bun.lockb" ]; then
+          echo "pm=bun" >> $GITHUB_OUTPUT
+        elif [ -f "yarn.lock" ]; then
+          echo "pm=yarn" >> $GITHUB_OUTPUT
+        elif [ -f "package-lock.json" ]; then
+          echo "pm=npm" >> $GITHUB_OUTPUT
+        else
+          echo "pm=npm" >> $GITHUB_OUTPUT  # fallback
+        fi
+        echo "Detected package manager: $(grep '^pm=' $GITHUB_OUTPUT | cut -d= -f2)"
+
+    - name: Setup pnpm
+      if: steps.info.outputs.pm == 'pnpm'
+      uses: pnpm/action-setup@v4
       with:
         version: ${{ inputs.pnpm_version }}
 
     - uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node_version }}
-        cache: 'pnpm'
+        cache: ${{ steps.info.outputs.pm }}
 
     - name: Install dependencies
       shell: bash
-      run: pnpm install --frozen-lockfile
+      run: |
+        case "${{ steps.info.outputs.pm }}" in
+          pnpm) pnpm install --frozen-lockfile ;;
+          npm)  npm ci ;;
+          yarn) yarn install --frozen-lockfile ;;
+          bun)  bun install --frozen-lockfile ;;
+        esac
 
     - name: Build
       shell: bash
-      run: ${{ inputs.build_command }}
+      run: |
+        BUILD_CMD="${{ inputs.build_command }}"
+        if [ -z "$BUILD_CMD" ]; then
+          BUILD_CMD="${{ steps.info.outputs.pm }} run build"
+        fi
+        $BUILD_CMD
 
     - name: Build and commit to dist branch
       shell: bash
@@ -113,6 +140,7 @@ runs:
         DIST_SHA="${{ steps.dist.outputs.sha }}"
         SOURCE_SHA="${{ steps.info.outputs.source_sha }}"
         REPO="${{ github.repository }}"
+        PM="${{ steps.info.outputs.pm }}"
 
         echo ""
         echo "=========================================="
@@ -125,12 +153,9 @@ runs:
         echo "📝 Source SHA: ${SOURCE_SHA}"
         echo ""
         echo "To use this version:"
-        echo "  pnpm add github:${REPO}#${DIST_SHA}"
-        echo ""
-        echo "Or with pnpm-dep-source:"
-        echo "  pds github <dep> ${DIST_BRANCH}"
+        echo "  ${PM} add github:${REPO}#${DIST_SHA}"
         echo ""
 
         # Add annotations that appear on Summary page
         echo "::notice title=🌿 Dist Branch Updated::${DIST_BRANCH} @ ${DIST_SHA:0:7}"
-        echo "::notice title=📦 Install Command::pnpm add github:${REPO}#${DIST_SHA}"
+        echo "::notice title=📦 Install Command::${PM} add github:${REPO}#${DIST_SHA}"
