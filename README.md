@@ -13,6 +13,8 @@ on:
   workflow_dispatch:
 jobs:
   build-dist:
+    permissions:
+      contents: write
     uses: runsascoded/npm-dist/.github/workflows/build-dist.yml@v1
 ```
 
