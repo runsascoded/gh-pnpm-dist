@@ -80,7 +80,7 @@ pds github <dep> dist
 For packages that don't use a `dist/` output folder (e.g., pure ESM packages with generated types), use `source_dirs` to specify which directories to include:
 
 ```yaml
-- uses: runsascoded/npm-dist@main
+- uses: runsascoded/npm-dist@v1
   with:
     source_ref: master
     build_command: pnpm run build:types

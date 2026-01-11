@@ -15,7 +15,7 @@ This repo provides a reusable GitHub Actions workflow that automates building np
 ### Key Components
 
 1. **Composite Action** (`action.yml`)
-   - Single-file action that other repos can call via `uses: runsascoded/npm-dist@main`
+   - Single-file action that other repos can call via `uses: runsascoded/npm-dist@v1`
    - Handles checkout, setup, build, commit, and push to dist branch
    - Configurable: node version, pnpm version, build command, dist branch name
    - Build script inlined in the action (no separate script file needed)
@@ -136,9 +136,9 @@ This makes the "parallel lineage" pattern more explicit and maintainable.
 ### Why inline the script in action.yml?
 
 The build script is inlined in `action.yml` because:
-1. Single-file distribution - callers just need `uses: runsascoded/npm-dist@main`
+1. Single-file distribution - callers just need `uses: runsascoded/npm-dist@v1`
 2. No bootstrap problem - callers don't need to set up a script on their dist branch first
-3. Script updates automatically available to all consumers using `@main`
+3. Script updates automatically available to all consumers using `@v1`
 
 ### Why use merge commits?
 
