@@ -25,8 +25,19 @@ rm -rf "$TMPDIR"
 mkdir -p "$TMPDIR"
 
 # Save source package.json before switching branches (for initial setup and version)
-cp package.json package.json.source
-SOURCE_VERSION=$(jq -r .version package.json)
+# For prebuilt mode (no root package.json), we use BUILD_DIR's package.json as-is
+if [ -f package.json ]; then
+  cp package.json package.json.source
+  SOURCE_VERSION=$(jq -r .version package.json)
+  PREBUILT_MODE=false
+elif [ -f "$BUILD_DIR/package.json" ]; then
+  # Prebuilt mode: caller provides complete package.json, we only add version suffix
+  SOURCE_VERSION=$(jq -r .version "$BUILD_DIR/package.json")
+  PREBUILT_MODE=true
+else
+  echo "ERROR: No package.json found in root or $BUILD_DIR"
+  exit 1
+fi
 
 # Save build output dir before checkout (git clean would remove it)
 if [ -d "$BUILD_DIR" ]; then
@@ -107,76 +118,83 @@ fi
 # Clean up tmpdir
 rm -rf "$TMPDIR"
 
-# Compute effective field list (include - exclude)
-if [ -n "$PKG_INCLUDE" ]; then
-  FIELDS_TO_INCLUDE="$PKG_INCLUDE"
-else
-  FIELDS_TO_INCLUDE="$DEFAULT_PKG_FIELDS"
-fi
-
-# Remove excluded fields
-if [ -n "$PKG_EXCLUDE" ]; then
-  IFS=',' read -ra EXCLUDE_ARR <<< "$PKG_EXCLUDE"
-  for exclude in "${EXCLUDE_ARR[@]}"; do
-    exclude=$(echo "$exclude" | xargs)
-    FIELDS_TO_INCLUDE=$(echo "$FIELDS_TO_INCLUDE" | sed "s/$exclude//g" | sed 's/,,/,/g' | sed 's/^,//' | sed 's/,$//')
-  done
-fi
-
-echo "Fields to include from source: $FIELDS_TO_INCLUDE"
-
 # Restore or create package.json
-if [ -f package.json.dist ]; then
-  # Merge: use dist structure but update key fields from source
-  jq -s --arg build_dir "$BUILD_DIR" --arg fields "$FIELDS_TO_INCLUDE" '
-    .[0] as $dist | .[1] as $src |
-    # Transform exports paths: ./$build_dir/... -> ./...
-    ($src.exports // {} | walk(
-      if type == "string" then
-        gsub("\\./\($build_dir)/"; "./") | gsub("\($build_dir)/"; "./")
-      else
-        .
-      end
-    )) as $transformed_exports |
-    # Split fields into array and build merge object
-    ($fields | split(",") | map(gsub("^\\s+|\\s+$"; ""))) as $field_list |
-    (reduce $field_list[] as $field ({}; . + (
-      if $field == "exports" then
-        {exports: $transformed_exports}
-      elif $src[$field] != null then
-        {($field): $src[$field]}
-      else
-        {}
-      end
-    ))) as $merge_obj |
-    $dist * $merge_obj | with_entries(select(.value != null))
-  ' package.json.dist package.json.source > package.json
-  rm -f package.json.dist package.json.source
-elif [ -f package.json.source ]; then
-  # First run: transform source package.json for dist branch
-  echo "Creating initial package.json for $DIST_BRANCH branch..."
-  if [ -n "$SOURCE_DIRS" ]; then
-    # SOURCE_DIRS mode: just remove dev fields, no path transformation
-    jq 'del(.files, .scripts, .devDependencies)' package.json.source > package.json
+if [ "$PREBUILT_MODE" = "true" ]; then
+  # Prebuilt mode: package.json already in build output, use as-is
+  echo "Prebuilt mode: using package.json from $BUILD_DIR"
+else
+  # Standard mode: merge/transform package.json
+
+  # Compute effective field list (include - exclude)
+  if [ -n "$PKG_INCLUDE" ]; then
+    FIELDS_TO_INCLUDE="$PKG_INCLUDE"
   else
-    # Default mode: remove dev fields and transform build_dir paths
-    jq --arg build_dir "$BUILD_DIR" '
-      # Remove fields not needed on dist branch
-      del(.files, .scripts, .devDependencies) |
-      # Transform paths: ./$build_dir/... -> ./...
-      walk(
+    FIELDS_TO_INCLUDE="$DEFAULT_PKG_FIELDS"
+  fi
+
+  # Remove excluded fields
+  if [ -n "$PKG_EXCLUDE" ]; then
+    IFS=',' read -ra EXCLUDE_ARR <<< "$PKG_EXCLUDE"
+    for exclude in "${EXCLUDE_ARR[@]}"; do
+      exclude=$(echo "$exclude" | xargs)
+      FIELDS_TO_INCLUDE=$(echo "$FIELDS_TO_INCLUDE" | sed "s/$exclude//g" | sed 's/,,/,/g' | sed 's/^,//' | sed 's/,$//')
+    done
+  fi
+
+  echo "Fields to include from source: $FIELDS_TO_INCLUDE"
+
+  if [ -f package.json.dist ]; then
+    # Merge: use dist structure but update key fields from source
+    jq -s --arg build_dir "$BUILD_DIR" --arg fields "$FIELDS_TO_INCLUDE" '
+      .[0] as $dist | .[1] as $src |
+      # Transform exports paths: ./$build_dir/... -> ./...
+      ($src.exports // {} | walk(
         if type == "string" then
           gsub("\\./\($build_dir)/"; "./") | gsub("\($build_dir)/"; "./")
         else
           .
         end
-      )
-    ' package.json.source > package.json
+      )) as $transformed_exports |
+      # Split fields into array and build merge object
+      ($fields | split(",") | map(gsub("^\\s+|\\s+$"; ""))) as $field_list |
+      (reduce $field_list[] as $field ({}; . + (
+        if $field == "exports" then
+          {exports: $transformed_exports}
+        elif $src[$field] != null then
+          {($field): $src[$field]}
+        else
+          {}
+        end
+      ))) as $merge_obj |
+      $dist * $merge_obj | with_entries(select(.value != null))
+    ' package.json.dist package.json.source > package.json
+    rm -f package.json.dist package.json.source
+  elif [ -f package.json.source ]; then
+    # First run: transform source package.json for dist branch
+    echo "Creating initial package.json for $DIST_BRANCH branch..."
+    if [ -n "$SOURCE_DIRS" ]; then
+      # SOURCE_DIRS mode: just remove dev fields, no path transformation
+      jq 'del(.files, .scripts, .devDependencies)' package.json.source > package.json
+    else
+      # Default mode: remove dev fields and transform build_dir paths
+      jq --arg build_dir "$BUILD_DIR" '
+        # Remove fields not needed on dist branch
+        del(.files, .scripts, .devDependencies) |
+        # Transform paths: ./$build_dir/... -> ./...
+        walk(
+          if type == "string" then
+            gsub("\\./\($build_dir)/"; "./") | gsub("\($build_dir)/"; "./")
+          else
+            .
+          end
+        )
+      ' package.json.source > package.json
+    fi
+    rm -f package.json.source
+  else
+    echo "ERROR: No package.json found"
+    exit 1
   fi
-  rm -f package.json.source
-else
-  echo "ERROR: No package.json found"
-  exit 1
 fi
 
 # Update version with dist suffix if enabled
