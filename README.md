@@ -67,6 +67,7 @@ pds github <dep> dist
 
 | Input | Description | Default |
 |-------|-------------|---------|
+| `prebuilt_dir` | Path to pre-built output (skips checkout/setup/build) | `''` |
 | `source_ref` | Source ref to build from | Repository default branch |
 | `node_version` | Node.js version | `'20'` |
 | `pnpm_version` | pnpm version (only if pnpm detected) | `'10'` |
@@ -74,6 +75,26 @@ pds github <dep> dist
 | `dist_branch` | Name of dist branch | `'dist'` |
 | `build_dir` | Directory created by build command | `'dist'` |
 | `source_dirs` | Comma-separated directories to include (e.g., `"src,types"`) | `''` |
+
+### `prebuilt_dir` mode
+
+For non-JS builds (Rust/WASM, Go, etc.) where you handle the build yourself, use `prebuilt_dir` to skip all setup and just manage the dist branch:
+
+```yaml
+# Rust/WASM example
+steps:
+  - uses: actions/checkout@v4
+    with:
+      fetch-depth: 0
+  - uses: Swatinem/rust-cache@v2
+  - uses: jetli/wasm-pack-action@v0.4.0
+  - run: wasm-pack build --target web
+  - uses: runsascoded/npm-dist@v1
+    with:
+      prebuilt_dir: pkg
+```
+
+When `prebuilt_dir` is set, npm-dist skips checkout, Node.js setup, dependency installation, and build command—it only manages the git operations for the dist branch.
 
 ### `source_dirs` mode
 
@@ -95,6 +116,7 @@ This preserves the specified directories as-is instead of moving `dist/*` to roo
 - [use-hotkeys] ([workflow][use-hotkeys-workflow])
 - [og-lambda] ([workflow][og-lambda-workflow])
 - [hyparquet] ([workflow][hyparquet-workflow]) - uses `source_dirs` mode
+- [shapes] ([workflow][shapes-workflow]) - Rust/WASM, uses `prebuilt_dir` mode
 
 ## See Also
 
@@ -110,6 +132,8 @@ This preserves the specified directories as-is instead of moving `dist/*` to roo
 [og-lambda-workflow]: https://github.com/runsascoded/og-lambda/blob/main/.github/workflows/build-dist.yml
 [hyparquet]: https://github.com/runsascoded/hyparquet
 [hyparquet-workflow]: https://github.com/runsascoded/hyparquet/blob/master/.github/workflows/build-dist.yml
+[shapes]: https://github.com/runsascoded/shapes
+[shapes-workflow]: https://github.com/runsascoded/shapes/blob/main/.github/workflows/ci.yml
 [pnpm-release]: https://github.com/runsascoded/pnpm-release
 
 ## License

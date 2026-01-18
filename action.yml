@@ -2,6 +2,10 @@ name: 'Build dist branch'
 description: 'Build npm package and push to dist branch'
 
 inputs:
+  prebuilt_dir:
+    description: 'Path to pre-built output directory. When set, skips checkout/setup/build and only manages the dist branch.'
+    required: false
+    default: ''
   source_ref:
     description: 'Source ref to build from (defaults to repository default branch)'
     required: false
@@ -54,12 +58,28 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - uses: actions/checkout@v4
+    - name: Checkout (standard mode)
+      if: inputs.prebuilt_dir == ''
+      uses: actions/checkout@v4
       with:
         ref: ${{ inputs.source_ref || github.event.repository.default_branch }}
         fetch-depth: 0
 
-    - name: Get package and source info
+    - name: Get source info (prebuilt mode)
+      if: inputs.prebuilt_dir != ''
+      id: prebuilt_info
+      shell: bash
+      run: |
+        echo "source_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        if [ -f "${{ inputs.prebuilt_dir }}/package.json" ]; then
+          echo "pkg_name=$(jq -r .name '${{ inputs.prebuilt_dir }}/package.json')" >> $GITHUB_OUTPUT
+        else
+          echo "pkg_name=unknown" >> $GITHUB_OUTPUT
+        fi
+        echo "pm=pnpm" >> $GITHUB_OUTPUT  # default for install command output
+
+    - name: Get package and source info (standard mode)
+      if: inputs.prebuilt_dir == ''
       id: info
       shell: bash
       run: |
@@ -81,17 +101,20 @@ runs:
         echo "Detected package manager: $(grep '^pm=' $GITHUB_OUTPUT | cut -d= -f2)"
 
     - name: Setup pnpm
-      if: steps.info.outputs.pm == 'pnpm'
+      if: inputs.prebuilt_dir == '' && steps.info.outputs.pm == 'pnpm'
       uses: pnpm/action-setup@v4
       with:
         version: ${{ inputs.pnpm_version }}
 
-    - uses: actions/setup-node@v4
+    - name: Setup Node.js
+      if: inputs.prebuilt_dir == ''
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node_version }}
         cache: ${{ steps.info.outputs.pm }}
 
     - name: Install dependencies
+      if: inputs.prebuilt_dir == ''
       shell: bash
       run: |
         case "${{ steps.info.outputs.pm }}" in
@@ -102,6 +125,7 @@ runs:
         esac
 
     - name: Build
+      if: inputs.prebuilt_dir == ''
       shell: bash
       run: |
         BUILD_CMD="${{ inputs.build_command }}"
@@ -110,18 +134,18 @@ runs:
         fi
         $BUILD_CMD
 
-    - name: Build and commit to dist branch
+    - name: Commit to dist branch
       shell: bash
       env:
         DIST_BRANCH: ${{ inputs.dist_branch || 'dist' }}
-        BUILD_DIR: ${{ inputs.build_dir }}
+        BUILD_DIR: ${{ inputs.prebuilt_dir || inputs.build_dir }}
         SOURCE_DIRS: ${{ inputs.source_dirs }}
         EXTRA_FILES: ${{ inputs.extra_files }}
         VERSION_SUFFIX: ${{ inputs.version_suffix }}
         PKG_INCLUDE: ${{ inputs.pkg_include }}
         PKG_EXCLUDE: ${{ inputs.pkg_exclude }}
         PKG_KVS: ${{ inputs.pkg_kvs }}
-      run: ${{ github.action_path }}/scripts/build-dist.sh ${{ steps.info.outputs.source_sha }}
+      run: ${{ github.action_path }}/scripts/build-dist.sh ${{ steps.prebuilt_info.outputs.source_sha || steps.info.outputs.source_sha }}
 
     - name: Get dist SHA
       id: dist
@@ -135,12 +159,12 @@ runs:
     - name: Output dist branch info
       shell: bash
       run: |
-        PKG_NAME="${{ steps.info.outputs.pkg_name }}"
+        PKG_NAME="${{ steps.prebuilt_info.outputs.pkg_name || steps.info.outputs.pkg_name }}"
         DIST_BRANCH="${{ inputs.dist_branch || 'dist' }}"
         DIST_SHA="${{ steps.dist.outputs.sha }}"
-        SOURCE_SHA="${{ steps.info.outputs.source_sha }}"
+        SOURCE_SHA="${{ steps.prebuilt_info.outputs.source_sha || steps.info.outputs.source_sha }}"
         REPO="${{ github.repository }}"
-        PM="${{ steps.info.outputs.pm }}"
+        PM="${{ steps.prebuilt_info.outputs.pm || steps.info.outputs.pm }}"
 
         echo ""
         echo "=========================================="
