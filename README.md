@@ -75,6 +75,13 @@ pds github <dep> dist
 | `dist_branch` | Name of dist branch | `'dist'` |
 | `build_dir` | Directory created by build command | `'dist'` |
 | `source_dirs` | Comma-separated directories to include (e.g., `"src,types"`) | `''` |
+| `extra_files` | Additional files to include (e.g., `"README.md,LICENSE"`) | `''` |
+| `version_suffix` | Add `-dist.<sha>` suffix to version | `'true'` |
+| `pkg_include` | package.json fields to include from source | (see below) |
+| `pkg_exclude` | package.json fields to exclude | `''` |
+| `pkg_kvs` | JSON object of package.json overrides | `''` |
+
+Default `pkg_include` fields: `name,description,keywords,repository,author,license,homepage,bugs,exports`
 
 ### `prebuilt_dir` mode
 

@@ -41,28 +41,17 @@ Where X, Y, Z are merge commits with two parents:
 
 ### Package.json Management
 
-**Important**: The script does NOT auto-generate `package.json` for the dist branch. Initial setup requires:
+On **first run** (no dist branch exists), the script auto-generates `package.json` by:
+1. Copying fields from source `package.json` (configurable via `pkg_include`)
+2. Transforming paths (`./dist/index.js` → `./index.js`)
+3. Removing dev-only fields (`files`, `scripts`, `devDependencies`)
 
-1. Manually create dist branch with correct `package.json`:
-   ```json
-   {
-     "name": "@scope/package",
-     "version": "1.0.0",
-     "main": "./index.cjs",      // NOT ./dist/index.cjs
-     "module": "./index.js",     // NOT ./dist/index.js
-     "types": "./index.d.ts",    // NOT ./dist/index.d.ts
-     "exports": {
-       ".": {
-         "types": "./index.d.ts",
-         "import": "./index.js",
-         "require": "./index.cjs"
-       }
-     }
-   }
-   ```
+On **subsequent runs**, it merges source metadata into the existing dist `package.json`, preserving any manual customizations while updating fields like `version`, `exports`, etc.
 
-2. Subsequent builds preserve this `package.json`
-3. Update `package.json` directly on dist branch when needed
+You can customize this behavior with:
+- `pkg_include`: Fields to copy from source (default: `name,description,keywords,repository,author,license,homepage,bugs,exports`)
+- `pkg_exclude`: Fields to skip
+- `pkg_kvs`: JSON overrides (e.g., `{"name":"custom-name"}`)
 
 ## Usage
 
@@ -92,14 +81,19 @@ jobs:
 
 | Input | Description | Default |
 |-------|-------------|---------|
-| `source_ref` | Source ref to build from (commit SHA, branch, or tag) | `'main'` |
+| `prebuilt_dir` | Path to pre-built output (skips checkout/setup/build) | `''` |
+| `source_ref` | Source ref to build from | Repository default branch |
 | `node_version` | Node.js version | `'20'` |
-| `pnpm_version` | pnpm version | `'10'` |
-| `build_command` | Build command to run | `'pnpm run build'` |
+| `pnpm_version` | pnpm version (only if pnpm detected) | `'10'` |
+| `build_command` | Build command to run | Auto-detect |
 | `dist_branch` | Name of dist branch | `'dist'` |
-| `build_dir` | Directory created by build command (moved to root on dist branch) | `'dist'` |
-| `source_dirs` | Comma-separated directories to include (preserves structure) | `''` |
+| `build_dir` | Directory created by build command | `'dist'` |
+| `source_dirs` | Comma-separated directories to include | `''` |
+| `extra_files` | Additional files to include | `''` |
 | `version_suffix` | Add `-dist.<sha>` suffix to version | `'true'` |
+| `pkg_include` | package.json fields to include from source | (see above) |
+| `pkg_exclude` | package.json fields to exclude | `''` |
+| `pkg_kvs` | JSON object of package.json overrides | `''` |
 
 ## Implementation Tasks
 
@@ -113,8 +107,10 @@ jobs:
 - [x] Add `build_dir` parameter (was hardcoded to `dist/`)
 - [x] Add `source_dirs` parameter for preserving directory structure
 - [x] Add `version_suffix` parameter for `-dist.<sha>` versioning
-- [ ] Consider `include_files` / `exclude_files` patterns
-- [ ] Support other package managers (npm, yarn)?
+- [x] Add `extra_files` parameter for additional files
+- [x] Add `pkg_include`/`pkg_exclude`/`pkg_kvs` for package.json control
+- [x] Auto-detect package manager (pnpm, npm, yarn, bun)
+- [x] Add `prebuilt_dir` for non-JS builds
 - [ ] Add validation for required parameters
 
 ### Phase 3: Polish
@@ -156,4 +152,4 @@ Merge commits create explicit connections between dist builds and source commits
 
 - Consider whether to support multiple build outputs (e.g., both ESM and CJS in separate dirs)
 - Investigate if GitHub's artifact retention could be used instead of dist branches
-- The `package.json` path transformation now happens automatically on first run
+- GitLab version lives at https://gitlab.com/runsascoded/js/npm-dist (separate branch, cherry-pick to sync)
