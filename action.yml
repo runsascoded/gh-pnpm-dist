@@ -104,11 +104,22 @@ runs:
         fi
         echo "Detected package manager: $(grep '^pm=' $GITHUB_OUTPUT | cut -d= -f2)"
 
-    - name: Setup pnpm
-      if: inputs.prebuilt_dir == '' && steps.info.outputs.pm == 'pnpm'
+        # Check if packageManager field exists (pnpm/action-setup will use it)
+        if jq -e .packageManager package.json > /dev/null 2>&1; then
+          echo "has_pkg_mgr=true" >> $GITHUB_OUTPUT
+        else
+          echo "has_pkg_mgr=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Setup pnpm (with version)
+      if: inputs.prebuilt_dir == '' && steps.info.outputs.pm == 'pnpm' && steps.info.outputs.has_pkg_mgr != 'true'
       uses: pnpm/action-setup@v4
       with:
         version: ${{ inputs.pnpm_version }}
+
+    - name: Setup pnpm (from packageManager)
+      if: inputs.prebuilt_dir == '' && steps.info.outputs.pm == 'pnpm' && steps.info.outputs.has_pkg_mgr == 'true'
+      uses: pnpm/action-setup@v4
 
     - name: Setup Node.js
       if: inputs.prebuilt_dir == ''
