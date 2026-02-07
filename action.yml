@@ -54,6 +54,10 @@ inputs:
     description: 'JSON object of key-value overrides for package.json (e.g., {"name":"custom-name"})'
     required: false
     default: ''
+  pkgs:
+    description: 'Monorepo mode: comma-separated package paths (e.g., "packages/client,packages/cli"). Uses pnpm pack to resolve workspace/catalog refs, preserves directory structure on dist branch.'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -134,7 +138,8 @@ runs:
         fi
         $BUILD_CMD
 
-    - name: Commit to dist branch
+    - name: Commit to dist branch (standard mode)
+      if: inputs.pkgs == ''
       shell: bash
       env:
         DIST_BRANCH: ${{ inputs.dist_branch || 'dist' }}
@@ -147,6 +152,15 @@ runs:
         PKG_KVS: ${{ inputs.pkg_kvs }}
       run: ${{ github.action_path }}/scripts/build-dist.sh ${{ steps.prebuilt_info.outputs.source_sha || steps.info.outputs.source_sha }}
 
+    - name: Commit to dist branch (monorepo mode)
+      if: inputs.pkgs != ''
+      shell: bash
+      env:
+        DIST_BRANCH: ${{ inputs.dist_branch || 'dist' }}
+        PKGS: ${{ inputs.pkgs }}
+        VERSION_SUFFIX: ${{ inputs.version_suffix }}
+      run: ${{ github.action_path }}/scripts/build-dist-monorepo.sh ${{ steps.prebuilt_info.outputs.source_sha || steps.info.outputs.source_sha }}
+
     - name: Get dist SHA
       id: dist
       shell: bash
@@ -158,6 +172,8 @@ runs:
 
     - name: Output dist branch info
       shell: bash
+      env:
+        PKGS: ${{ inputs.pkgs }}
       run: |
         PKG_NAME="${{ steps.prebuilt_info.outputs.pkg_name || steps.info.outputs.pkg_name }}"
         DIST_BRANCH="${{ inputs.dist_branch || 'dist' }}"
@@ -171,15 +187,34 @@ runs:
         echo "✅ Dist branch updated successfully!"
         echo "=========================================="
         echo ""
-        echo "📦 Package: ${PKG_NAME}"
         echo "🌿 Branch: ${DIST_BRANCH}"
         echo "🔗 Dist SHA: ${DIST_SHA}"
         echo "📝 Source SHA: ${SOURCE_SHA}"
         echo ""
-        echo "To use this version:"
-        echo "  ${PM} add github:${REPO}#${DIST_SHA}"
-        echo ""
 
-        # Add annotations that appear on Summary page
-        echo "::notice title=🌿 Dist Branch Updated::${DIST_BRANCH} @ ${DIST_SHA:0:7}"
-        echo "::notice title=📦 Install Command::${PM} add github:${REPO}#${DIST_SHA}"
+        if [ -n "$PKGS" ]; then
+          echo "📦 Monorepo packages:"
+          IFS=',' read -ra PKG_PATHS <<< "$PKGS"
+          for pkg_path in "${PKG_PATHS[@]}"; do
+            pkg_path=$(echo "$pkg_path" | xargs)
+            pkg_name=$(jq -r .name "$pkg_path/package.json" 2>/dev/null || echo "$pkg_path")
+            echo "  - $pkg_name"
+          done
+          echo ""
+          echo "To use these packages (pnpm 9+ git subdirectory syntax):"
+          for pkg_path in "${PKG_PATHS[@]}"; do
+            pkg_path=$(echo "$pkg_path" | xargs)
+            pkg_name=$(jq -r .name "$pkg_path/package.json" 2>/dev/null || echo "$pkg_path")
+            echo "  \"$pkg_name\": \"git+https://github.com/${REPO}.git?path=/${pkg_path}#${DIST_SHA}\""
+          done
+          echo ""
+          echo "::notice title=🌿 Dist Branch Updated::${DIST_BRANCH} @ ${DIST_SHA:0:7} (monorepo)"
+        else
+          echo "📦 Package: ${PKG_NAME}"
+          echo ""
+          echo "To use this version:"
+          echo "  ${PM} add github:${REPO}#${DIST_SHA}"
+          echo ""
+          echo "::notice title=🌿 Dist Branch Updated::${DIST_BRANCH} @ ${DIST_SHA:0:7}"
+          echo "::notice title=📦 Install Command::${PM} add github:${REPO}#${DIST_SHA}"
+        fi
