@@ -13,6 +13,9 @@ if [ -z "$PKGS" ]; then
   exit 1
 fi
 
+# Normalize: convert newlines to commas, strip empty entries and whitespace
+PKGS=$(echo "$PKGS" | tr '\n' ',' | sed 's/,,*/,/g; s/^,//; s/,$//')
+
 echo "Building $DIST_BRANCH from source commit: $SOURCE_SHA"
 echo "Packages: $PKGS"
 

@@ -55,7 +55,7 @@ inputs:
     required: false
     default: ''
   pkgs:
-    description: 'Monorepo mode: comma-separated package paths (e.g., "packages/client,packages/cli"). Uses pnpm pack to resolve workspace/catalog refs, preserves directory structure on dist branch.'
+    description: 'Monorepo mode: package paths, one per line. Uses pnpm pack to resolve workspace/catalog refs, preserves directory structure on dist branch.'
     required: false
     default: ''
 
@@ -204,6 +204,8 @@ runs:
         echo ""
 
         if [ -n "$PKGS" ]; then
+          # Normalize: convert newlines to commas, strip empty entries
+          PKGS=$(echo "$PKGS" | tr '\n' ',' | sed 's/,,*/,/g; s/^,//; s/,$//')
           echo "📦 Monorepo packages:"
           IFS=',' read -ra PKG_PATHS <<< "$PKGS"
           for pkg_path in "${PKG_PATHS[@]}"; do
