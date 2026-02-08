@@ -12,7 +12,7 @@ PKG_EXCLUDE="${PKG_EXCLUDE:-}"
 PKG_KVS="${PKG_KVS:-}"
 
 # Default fields to include from source package.json
-DEFAULT_PKG_FIELDS="name,description,keywords,repository,author,license,homepage,bugs,exports"
+DEFAULT_PKG_FIELDS="name,description,type,bin,main,keywords,repository,author,license,homepage,bugs,exports,dependencies,peerDependencies,optionalDependencies"
 
 echo "Building $DIST_BRANCH from source commit: $SOURCE_SHA"
 
