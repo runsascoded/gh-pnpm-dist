@@ -78,7 +78,8 @@ cat > "$TMPDIR/dist-content/package.json" << EOF
 }
 EOF
 
-# Remove node_modules before checkout
+# Reset any build-generated changes and remove node_modules before checkout
+git checkout -- . 2>/dev/null || true
 rm -rf node_modules
 
 # Fetch dist branch if it exists
