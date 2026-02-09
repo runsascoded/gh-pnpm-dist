@@ -147,21 +147,20 @@ else
     # Merge: use dist structure but update key fields from source
     jq -s --arg build_dir "$BUILD_DIR" --arg fields "$FIELDS_TO_INCLUDE" '
       .[0] as $dist | .[1] as $src |
-      # Transform exports paths: ./$build_dir/... -> ./...
-      ($src.exports // {} | walk(
-        if type == "string" then
-          gsub("\\./\($build_dir)/"; "./") | gsub("\($build_dir)/"; "./")
-        else
-          .
-        end
-      )) as $transformed_exports |
+      # Helper: transform ./$build_dir/... -> ./... in all strings
+      def transform_paths:
+        walk(
+          if type == "string" then
+            gsub("\\./\($build_dir)/"; "./") | gsub("\($build_dir)/"; "./")
+          else
+            .
+          end
+        );
       # Split fields into array and build merge object
       ($fields | split(",") | map(gsub("^\\s+|\\s+$"; ""))) as $field_list |
       (reduce $field_list[] as $field ({}; . + (
-        if $field == "exports" then
-          {exports: $transformed_exports}
-        elif $src[$field] != null then
-          {($field): $src[$field]}
+        if $src[$field] != null then
+          {($field): ($src[$field] | transform_paths)}
         else
           {}
         end
