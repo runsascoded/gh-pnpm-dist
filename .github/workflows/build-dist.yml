@@ -46,6 +46,18 @@ on:
         description: 'JSON object of key-value overrides for package.json'
         type: string
         default: ''
+      version_suffix:
+        description: 'Append -dist.<sha> to package version (e.g. 0.1.0 → 0.1.0-dist.abc1234)'
+        type: boolean
+        default: true
+      prebuilt_dir:
+        description: 'Path to pre-built output (skips checkout/setup/build)'
+        type: string
+        default: ''
+      pkgs:
+        description: 'Monorepo mode: package paths, one per line'
+        type: string
+        default: ''
 
 jobs:
   build-dist:
@@ -66,3 +78,6 @@ jobs:
           pkg_include: ${{ inputs.pkg_include }}
           pkg_exclude: ${{ inputs.pkg_exclude }}
           pkg_kvs: ${{ inputs.pkg_kvs }}
+          version_suffix: ${{ inputs.version_suffix }}
+          prebuilt_dir: ${{ inputs.prebuilt_dir }}
+          pkgs: ${{ inputs.pkgs }}
