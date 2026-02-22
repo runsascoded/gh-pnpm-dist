@@ -119,28 +119,46 @@ This preserves the specified directories as-is instead of moving `dist/*` to roo
 
 ## Used By
 
-- [use-url-params] ([workflow][use-url-params-workflow])
-- [use-hotkeys] ([workflow][use-hotkeys-workflow])
-- [og-lambda] ([workflow][og-lambda-workflow])
-- [hyparquet] ([workflow][hyparquet-workflow]) - uses `source_dirs` mode
-- [shapes] ([workflow][shapes-workflow]) - Rust/WASM, uses `prebuilt_dir` mode
+- [aws-static-sso] ([usage][aws-static-sso-search]) - monorepo mode (`pkgs`)
+- [hyparquet] ([npm][hyparquet-npm], [usage][hyparquet-search]) - `source_dirs` mode
+- [og-lambda] ([usage][og-lambda-search])
+- [pnpm-dep-source] ([npm][pnpm-dep-source-npm], [usage][pnpm-dep-source-search])
+- [shapes] ([usage][shapes-search]) - Rust/WASM, `prebuilt_dir` + monorepo mode
+- [slidev] ([usage][slidev-search]) - monorepo mode (`pkgs`)
+- [use-kbd] ([npm][use-kbd-npm], [usage][use-kbd-search])
+- [use-prms] ([npm][use-prms-npm], [usage][use-prms-search])
+- [vite-plugin-dvc] ([usage][vite-plugin-dvc-search])
 
-## See Also
+### GitLab Version
+
+See [npm-dist (GitLab)] for the GitLab CI version and its consumers, e.g.:
 
 - [npm-dist (GitLab)] - GitLab CI version of this tool
 - [pnpm-release] - Sibling action for npm publishing and GitHub releases
 
 [npm-dist (GitLab)]: https://gitlab.com/runsascoded/js/npm-dist
-[use-url-params]: https://github.com/runsascoded/use-url-params
-[use-url-params-workflow]: https://github.com/runsascoded/use-url-params/blob/main/.github/workflows/build-dist.yml
-[use-hotkeys]: https://github.com/runsascoded/use-hotkeys
-[use-hotkeys-workflow]: https://github.com/runsascoded/use-hotkeys/blob/main/.github/workflows/build-dist.yml
+[aws-static-sso]: https://github.com/runsascoded/aws-static-sso
+[aws-static-sso-search]: https://github.com/search?q=repo%3Arunsascoded%2Faws-static-sso+npm-dist&type=code
+[hyparquet]: https://github.com/hyparam/hyparquet
+[hyparquet-npm]: https://www.npmjs.com/package/hyparquet
+[hyparquet-search]: https://github.com/search?q=repo%3Ahyparam%2Fhyparquet+pnpm-dist&type=code
 [og-lambda]: https://github.com/runsascoded/og-lambda
-[og-lambda-workflow]: https://github.com/runsascoded/og-lambda/blob/main/.github/workflows/build-dist.yml
-[hyparquet]: https://github.com/runsascoded/hyparquet
-[hyparquet-workflow]: https://github.com/runsascoded/hyparquet/blob/master/.github/workflows/build-dist.yml
+[og-lambda-search]: https://github.com/search?q=repo%3Arunsascoded%2Fog-lambda+pnpm-dist&type=code
+[pnpm-dep-source]: https://github.com/runsascoded/pnpm-dep-source
+[pnpm-dep-source-npm]: https://www.npmjs.com/package/pnpm-dep-source
+[pnpm-dep-source-search]: https://github.com/search?q=repo%3Arunsascoded%2Fpnpm-dep-source+npm-dist&type=code
 [shapes]: https://github.com/runsascoded/shapes
-[shapes-workflow]: https://github.com/runsascoded/shapes/blob/main/.github/workflows/ci.yml
+[shapes-search]: https://github.com/search?q=repo%3Arunsascoded%2Fshapes+npm-dist&type=code
+[slidev]: https://github.com/Open-Athena/slidev
+[slidev-search]: https://github.com/search?q=repo%3AOpen-Athena%2Fslidev+npm-dist&type=code
+[use-kbd]: https://github.com/runsascoded/use-kbd
+[use-kbd-npm]: https://www.npmjs.com/package/use-kbd
+[use-kbd-search]: https://github.com/search?q=repo%3Arunsascoded%2Fuse-kbd+npm-dist&type=code
+[use-prms]: https://github.com/runsascoded/use-prms
+[use-prms-npm]: https://www.npmjs.com/package/use-prms
+[use-prms-search]: https://github.com/search?q=repo%3Arunsascoded%2Fuse-prms+npm-dist&type=code
+[vite-plugin-dvc]: https://github.com/runsascoded/vite-plugin-dvc
+[vite-plugin-dvc-search]: https://github.com/search?q=repo%3Arunsascoded%2Fvite-plugin-dvc+npm-dist&type=code
 [pnpm-release]: https://github.com/runsascoded/pnpm-release
 
 ## License
