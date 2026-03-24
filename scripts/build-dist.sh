@@ -4,6 +4,7 @@ set -e
 SOURCE_SHA="${1:-$(git rev-parse HEAD)}"
 DIST_BRANCH="${DIST_BRANCH:-dist}"
 BUILD_DIR="${BUILD_DIR:-dist}"
+PRESERVE_DIRS="${PRESERVE_DIRS:-}"
 SOURCE_DIRS="${SOURCE_DIRS:-}"
 EXTRA_FILES="${EXTRA_FILES:-}"
 VERSION_SUFFIX="${VERSION_SUFFIX:-true}"
@@ -11,6 +12,16 @@ PKG_INCLUDE="${PKG_INCLUDE:-}"
 PKG_EXCLUDE="${PKG_EXCLUDE:-}"
 PKG_KVS="${PKG_KVS:-}"
 EXPORTS_MAP="${EXPORTS_MAP:-}"
+
+# Resolve preserve_dirs (with source_dirs deprecation)
+if [ -n "$PRESERVE_DIRS" ] && [ -n "$SOURCE_DIRS" ]; then
+  echo "::warning::Both preserve_dirs and source_dirs are set; using preserve_dirs"
+fi
+if [ -z "$PRESERVE_DIRS" ] && [ -n "$SOURCE_DIRS" ]; then
+  PRESERVE_DIRS="$SOURCE_DIRS"
+  echo "::warning::source_dirs is deprecated, use preserve_dirs instead"
+  echo "⚠️ \`source_dirs\` is deprecated, use \`preserve_dirs\` instead." >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+fi
 
 # Default fields to include from source package.json
 DEFAULT_PKG_FIELDS="name,description,type,bin,main,keywords,repository,author,license,homepage,bugs,exports,dependencies,peerDependencies,optionalDependencies"
@@ -45,10 +56,10 @@ if [ -d "$BUILD_DIR" ]; then
   cp -r "$BUILD_DIR" "$TMPDIR/build-output"
 fi
 
-# If SOURCE_DIRS is set, save those directories
-if [ -n "$SOURCE_DIRS" ]; then
+# If PRESERVE_DIRS is set, save those directories
+if [ -n "$PRESERVE_DIRS" ]; then
   mkdir -p "$TMPDIR/source-dirs"
-  IFS=',' read -ra DIRS <<< "$SOURCE_DIRS"
+  IFS=',' read -ra DIRS <<< "$PRESERVE_DIRS"
   for dir in "${DIRS[@]}"; do
     dir=$(echo "$dir" | xargs)  # trim whitespace
     if [ -d "$dir" ]; then
@@ -98,8 +109,8 @@ git config user.email "github-actions[bot]@users.noreply.github.com"
 git rm -rf . 2>/dev/null || true
 git clean -fdx -e "$TMPDIR" -e package.json.dist -e package.json.source
 
-if [ -n "$SOURCE_DIRS" ]; then
-  # SOURCE_DIRS mode: restore saved directories
+if [ -n "$PRESERVE_DIRS" ]; then
+  # preserve_dirs mode: restore saved directories
   cp -r "$TMPDIR/source-dirs"/* .
 else
   # Default mode: restore build output and move contents to root
@@ -172,8 +183,8 @@ else
   elif [ -f package.json.source ]; then
     # First run: transform source package.json for dist branch
     echo "Creating initial package.json for $DIST_BRANCH branch..."
-    if [ -n "$SOURCE_DIRS" ]; then
-      # SOURCE_DIRS mode: just remove dev fields, no path transformation
+    if [ -n "$PRESERVE_DIRS" ]; then
+      # preserve_dirs mode: just remove dev fields, no path transformation
       jq 'del(.files, .scripts, .devDependencies)' package.json.source > package.json
     else
       # Default mode: remove dev fields and transform build_dir paths

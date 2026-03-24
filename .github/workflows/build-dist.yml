@@ -26,8 +26,12 @@ on:
         description: 'Directory created by build command'
         type: string
         default: 'dist'
+      preserve_dirs:
+        description: 'Comma-separated directories to preserve as-is on the dist branch'
+        type: string
+        default: ''
       source_dirs:
-        description: 'Comma-separated directories to include (instead of build_dir)'
+        description: 'Deprecated: use preserve_dirs instead'
         type: string
         default: ''
       extra_files:
@@ -77,6 +81,7 @@ jobs:
           build_command: ${{ inputs.build_command }}
           dist_branch: ${{ inputs.dist_branch }}
           build_dir: ${{ inputs.build_dir }}
+          preserve_dirs: ${{ inputs.preserve_dirs }}
           source_dirs: ${{ inputs.source_dirs }}
           extra_files: ${{ inputs.extra_files }}
           pkg_include: ${{ inputs.pkg_include }}
