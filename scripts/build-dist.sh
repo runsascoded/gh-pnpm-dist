@@ -211,6 +211,35 @@ if [ -n "$PKG_KVS" ]; then
   mv package.json.tmp package.json
 fi
 
+# Validate exports: error if any entry points to a file that doesn't exist
+if jq -e '.exports // empty' package.json > /dev/null 2>&1; then
+  echo "Validating exports map..."
+  EXPORTS_ERRORS=""
+  while IFS=$'\t' read -r key value; do
+    # Skip glob/wildcard patterns (e.g. "./dist/*" → "./dist/*")
+    if [[ "$value" == *'*'* ]]; then
+      continue
+    fi
+    # Check if target file exists
+    if [ ! -f "$value" ]; then
+      EXPORTS_ERRORS="${EXPORTS_ERRORS}\n  \"${key}\": \"${value}\" → file not found"
+    fi
+  done < <(jq -r '.exports | to_entries[] | [.key, (.value | if type == "object" then (.import // .require // .default // "") else . end)] | @tsv' package.json)
+
+  if [ -n "$EXPORTS_ERRORS" ]; then
+    echo ""
+    echo "ERROR: exports map references files that don't exist on the dist branch:"
+    echo -e "$EXPORTS_ERRORS"
+    echo ""
+    echo "Fix by either:"
+    echo "  1. Including the files in the build output (source_dirs or extra_files)"
+    echo "  2. Rewriting exports in package.json before dist (pkg_kvs input)"
+    echo "  3. Removing broken exports from source package.json"
+    exit 1
+  fi
+  echo "All exports validated ✓"
+fi
+
 # Stage all changes
 git add -A
 
