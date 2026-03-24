@@ -10,6 +10,7 @@ VERSION_SUFFIX="${VERSION_SUFFIX:-true}"
 PKG_INCLUDE="${PKG_INCLUDE:-}"
 PKG_EXCLUDE="${PKG_EXCLUDE:-}"
 PKG_KVS="${PKG_KVS:-}"
+EXPORTS_MAP="${EXPORTS_MAP:-}"
 
 # Default fields to include from source package.json
 DEFAULT_PKG_FIELDS="name,description,type,bin,main,keywords,repository,author,license,homepage,bugs,exports,dependencies,peerDependencies,optionalDependencies"
@@ -211,17 +212,75 @@ if [ -n "$PKG_KVS" ]; then
   mv package.json.tmp package.json
 fi
 
+# Rewrite exports using exports_map (if provided)
+if [ -n "$EXPORTS_MAP" ] && jq -e '.exports // empty' package.json > /dev/null 2>&1; then
+  echo "Rewriting exports using exports_map..."
+  jq --argjson map "$EXPORTS_MAP" '
+    # Rewrite `main` if it matches a key in the map
+    (if .main and $map[.main] then .main = $map[.main] else . end) |
+    # Rewrite exports entries
+    if .exports then
+      .exports |= with_entries(
+        # Resolve the target value (handle conditional exports objects)
+        (.value | if type == "object" then (.import // .require // .default // "") else . end) as $target |
+        if $map[$target] then
+          # Mapped: replace value (or replace within conditional exports object)
+          if .value | type == "object" then
+            .value |= map_values(if . == $target then $map[$target] else . end)
+          else
+            .value = $map[$target]
+          end
+        else
+          .
+        end
+      )
+    else
+      .
+    end
+  ' package.json > package.json.tmp
+  mv package.json.tmp package.json
+
+  # Drop exports pointing at missing files/directories
+  EXPORTS_TO_DROP=""
+  while IFS=$'\t' read -r key value; do
+    if [[ "$value" == *'*'* ]]; then
+      # Glob pattern: check if the base directory exists (e.g. "./lib/*" → check "./lib")
+      glob_dir="${value%%\**}"
+      glob_dir="${glob_dir%/}"
+      if [ -n "$glob_dir" ] && [ ! -d "$glob_dir" ]; then
+        EXPORTS_TO_DROP="${EXPORTS_TO_DROP}${key}\n"
+        echo "  Dropping export \"${key}\" → \"${value}\" (directory not found)"
+      fi
+    elif [ ! -f "$value" ] && [ ! -d "${value%/}" ]; then
+      EXPORTS_TO_DROP="${EXPORTS_TO_DROP}${key}\n"
+      echo "  Dropping export \"${key}\" → \"${value}\" (target not found)"
+    fi
+  done < <(jq -r '.exports | to_entries[] | [.key, (.value | if type == "object" then (.import // .require // .default // "") else . end)] | @tsv' package.json)
+
+  if [ -n "$EXPORTS_TO_DROP" ]; then
+    # Build jq filter to remove the marked keys
+    DROP_KEYS=$(echo -e "$EXPORTS_TO_DROP" | sed '/^$/d' | jq -R . | jq -s .)
+    jq --argjson drop "$DROP_KEYS" '
+      .exports |= with_entries(select(.key as $k | ($drop | index($k)) | not))
+    ' package.json > package.json.tmp
+    mv package.json.tmp package.json
+  fi
+  echo "Exports rewriting complete"
+fi
+
 # Validate exports: error if any entry points to a file that doesn't exist
 if jq -e '.exports // empty' package.json > /dev/null 2>&1; then
   echo "Validating exports map..."
   EXPORTS_ERRORS=""
   while IFS=$'\t' read -r key value; do
-    # Skip glob/wildcard patterns (e.g. "./dist/*" → "./dist/*")
     if [[ "$value" == *'*'* ]]; then
-      continue
-    fi
-    # Check if target file exists
-    if [ ! -f "$value" ]; then
+      # Glob: check if base directory exists
+      glob_dir="${value%%\**}"
+      glob_dir="${glob_dir%/}"
+      if [ -n "$glob_dir" ] && [ ! -d "$glob_dir" ]; then
+        EXPORTS_ERRORS="${EXPORTS_ERRORS}\n  \"${key}\": \"${value}\" → directory not found"
+      fi
+    elif [ ! -f "$value" ]; then
       EXPORTS_ERRORS="${EXPORTS_ERRORS}\n  \"${key}\": \"${value}\" → file not found"
     fi
   done < <(jq -r '.exports | to_entries[] | [.key, (.value | if type == "object" then (.import // .require // .default // "") else . end)] | @tsv' package.json)
@@ -232,9 +291,10 @@ if jq -e '.exports // empty' package.json > /dev/null 2>&1; then
     echo -e "$EXPORTS_ERRORS"
     echo ""
     echo "Fix by either:"
-    echo "  1. Including the files in the build output (source_dirs or extra_files)"
-    echo "  2. Rewriting exports in package.json before dist (pkg_kvs input)"
-    echo "  3. Removing broken exports from source package.json"
+    echo "  1. Using exports_map to rewrite source paths to dist paths"
+    echo "  2. Including the files in the build output (source_dirs or extra_files)"
+    echo "  3. Overriding exports via pkg_kvs"
+    echo "  4. Removing broken exports from source package.json"
     exit 1
   fi
   echo "All exports validated ✓"

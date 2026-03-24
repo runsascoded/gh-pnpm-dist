@@ -54,6 +54,10 @@ inputs:
     description: 'JSON object of key-value overrides for package.json (e.g., {"name":"custom-name"})'
     required: false
     default: ''
+  exports_map:
+    description: 'JSON mapping of source export values to dist export values (e.g., {"./lib/index.js":"./dist/plotly.min.js"}). Entries not in the map whose targets do not exist on the dist branch are dropped.'
+    required: false
+    default: ''
   pkgs:
     description: 'Monorepo mode: package paths, one per line. Uses pnpm pack to resolve workspace/catalog refs, preserves directory structure on dist branch.'
     required: false
@@ -161,6 +165,7 @@ runs:
         PKG_INCLUDE: ${{ inputs.pkg_include }}
         PKG_EXCLUDE: ${{ inputs.pkg_exclude }}
         PKG_KVS: ${{ inputs.pkg_kvs }}
+        EXPORTS_MAP: ${{ inputs.exports_map }}
       run: ${{ github.action_path }}/scripts/build-dist.sh ${{ steps.prebuilt_info.outputs.source_sha || steps.info.outputs.source_sha }}
 
     - name: Commit to dist branch (monorepo mode)

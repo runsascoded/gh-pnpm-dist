@@ -1,72 +1,75 @@
 # Rewrite `exports` map for dist branches
 
 ## Problem
-When a library has an `exports` map pointing to source files (`./lib/*`, `./src/*`), those files don't exist on the dist branch (which only ships built `dist/` output). Consumers using the dist branch via `pds gh <name>` get broken imports.
 
-Example — plotly.js source `package.json`:
+Repos keep `exports` in `package.json` pointing at source files (e.g. `./lib/index.js`) for local dev and `pds local` usage. But on the dist branch, consumers need exports pointing at built files (e.g. `./dist/plotly.min.js`). Previously the calling workflow had to manually rewrite exports with a `jq` script or hardcode them in `pkg_kvs`, which was fragile and verbose.
+
+## Solution: `exports_map` input
+
+Implemented Option A from the original spec. New `exports_map` input: a JSON mapping from source export values to dist export values.
+
+### Usage
+
+```yaml
+- uses: runsascoded/npm-dist@v1
+  with:
+    build_command: npm run build
+    source_dirs: dist
+    exports_map: >-
+      {
+        "./lib/index.js": "./dist/plotly.min.js",
+        "./lib/index-basic.js": "./dist/plotly-basic.min.js",
+        "./lib/index-lite.js": "./dist/plotly-lite.min.js"
+      }
+```
+
+### Behavior
+
+1. Rewrites `main` if its value matches a key in the map
+2. Rewrites each `exports` entry whose value matches a key in the map
+3. Handles conditional exports objects (`{ "import": ..., "require": ... }`)
+4. After rewriting, drops any exports whose targets don't exist on the dist branch:
+   - File exports: dropped if the file doesn't exist
+   - Glob exports (e.g. `./lib/*`): dropped if the base directory doesn't exist
+5. The existing exports validation step then catches any remaining broken entries
+
+### Example: plotly.js fork
+
+Source `package.json`:
 ```json
 {
+  "main": "./lib/index.js",
   "exports": {
     ".": "./lib/index.js",
     "./basic": "./lib/index-basic.js",
+    "./lite": "./lib/index-lite.js",
     "./lib/*": "./lib/*",
+    "./src/*": "./src/*",
     "./dist/*": "./dist/*"
   }
 }
 ```
 
-On the dist branch, `lib/` doesn't exist. `import('plotly.js/basic')` fails.
-
-## Solution
-After copying `package.json` to the dist branch, rewrite `exports` entries that reference missing files/dirs to point at `dist/` equivalents.
-
-### Heuristic
-For each export entry:
-1. If the target file/dir exists on the dist branch → keep as-is
-2. If not, and a plausible `dist/` equivalent exists → rewrite
-3. If no equivalent found → remove the entry (with a warning)
-
-### Mapping rules
-- `"./lib/index.js"` → `"./dist/<pkg-name>.min.js"` (or `"./dist/<pkg-name>.js"`)
-- `"./lib/index-<variant>.js"` → `"./dist/<pkg-name>-<variant>.min.js"`
-- `"./lib/<name>.js"` → `"./dist/<name>.min.js"` (fallback: `"./dist/<name>.js"`)
-- `"./src/*"` → remove (source not shipped)
-- `"./lib/*"` → remove (source not shipped)
-- `"./dist/*"` → keep
-
-Also rewrite `main` field if it points to a missing file.
-
-### Configuration
-New optional input: `rewrite_exports` (default: `true`)
-- `true`: auto-rewrite missing exports
-- `false`: copy exports as-is (current behavior)
-- A JSON mapping for explicit overrides
-
-### Example output
-For plotly.js dist branch:
+After `exports_map` rewriting on dist branch:
 ```json
 {
   "main": "./dist/plotly.min.js",
   "exports": {
     ".": "./dist/plotly.min.js",
     "./basic": "./dist/plotly-basic.min.js",
-    "./cartesian": "./dist/plotly-cartesian.min.js",
+    "./lite": "./dist/plotly-lite.min.js",
     "./dist/*": "./dist/*"
   }
 }
 ```
 
-## Interaction with `pds`
-This makes `pds [l|g] <dep>` seamless: consumers always `import('plotly.js/basic')`, and it resolves to:
-- Local: `./lib/index-basic.js` (CJS source, Vite pre-bundles it)
-- GH dist: `./dist/plotly-basic.min.js` (UMD bundle, works directly)
+- `./lib/*` and `./src/*` dropped (directories don't exist on dist)
+- Named exports remapped via the map
+- `./dist/*` kept as-is
 
-The `pds` Vite plugin may still need to handle `optimizeDeps` for CJS source imports in local mode, but the import paths stay the same.
+### Files changed
 
-## Scope
-This benefits any library that:
-- Has an `exports` map with clean subpath imports (`./basic`, `./core`, etc.)
-- Builds to `dist/` bundles with predictable names
-- Uses `npm-dist` for dist branch management
+- `action.yml`: added `exports_map` input
+- `.github/workflows/build-dist.yml`: exposed `exports_map` in reusable workflow
+- `scripts/build-dist.sh`: exports rewriting logic + improved validation (now checks glob base dirs too)
 
-Not just plotly.js — any multi-bundle library (e.g. `d3`, icon packs, etc.).

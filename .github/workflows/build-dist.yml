@@ -54,6 +54,10 @@ on:
         description: 'Path to pre-built output (skips checkout/setup/build)'
         type: string
         default: ''
+      exports_map:
+        description: 'JSON mapping of source export values to dist export values'
+        type: string
+        default: ''
       pkgs:
         description: 'Monorepo mode: package paths, one per line'
         type: string
@@ -78,6 +82,7 @@ jobs:
           pkg_include: ${{ inputs.pkg_include }}
           pkg_exclude: ${{ inputs.pkg_exclude }}
           pkg_kvs: ${{ inputs.pkg_kvs }}
+          exports_map: ${{ inputs.exports_map }}
           version_suffix: ${{ inputs.version_suffix }}
           prebuilt_dir: ${{ inputs.prebuilt_dir }}
           pkgs: ${{ inputs.pkgs }}
