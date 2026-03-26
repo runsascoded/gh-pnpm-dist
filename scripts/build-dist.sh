@@ -91,7 +91,7 @@ rm -rf node_modules
 # Fetch dist branch if it exists
 DIST_EXISTS=false
 if git fetch origin "$DIST_BRANCH:$DIST_BRANCH" 2>/dev/null; then
-  git checkout "$DIST_BRANCH"
+  git checkout -f "$DIST_BRANCH"
   DIST_EXISTS=true
   # Save existing package.json from dist branch
   if [ -f package.json ]; then
