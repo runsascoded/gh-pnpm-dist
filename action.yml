@@ -72,7 +72,7 @@ runs:
   steps:
     - name: Checkout (standard mode)
       if: inputs.prebuilt_dir == ''
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         ref: ${{ inputs.source_ref || github.event.repository.default_branch }}
         fetch-depth: 0
@@ -121,17 +121,17 @@ runs:
 
     - name: Setup pnpm (with version)
       if: inputs.prebuilt_dir == '' && steps.info.outputs.pm == 'pnpm' && steps.info.outputs.has_pkg_mgr != 'true'
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@v5
       with:
         version: ${{ inputs.pnpm_version }}
 
     - name: Setup pnpm (from packageManager)
       if: inputs.prebuilt_dir == '' && steps.info.outputs.pm == 'pnpm' && steps.info.outputs.has_pkg_mgr == 'true'
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@v5
 
     - name: Setup Node.js
       if: inputs.prebuilt_dir == ''
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
         node-version: ${{ inputs.node_version }}
         cache: ${{ steps.info.outputs.pm }}
