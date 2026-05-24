@@ -12,6 +12,10 @@ PKG_INCLUDE="${PKG_INCLUDE:-}"
 PKG_EXCLUDE="${PKG_EXCLUDE:-}"
 PKG_KVS="${PKG_KVS:-}"
 EXPORTS_MAP="${EXPORTS_MAP:-}"
+ON_SOURCE_REWRITE="${ON_SOURCE_REWRITE:-rewrite}"
+
+# shellcheck source=./find-dist-parent.sh
+source "$(dirname "${BASH_SOURCE[0]}")/find-dist-parent.sh"
 
 # Resolve preserve_dirs (with source_dirs deprecation)
 if [ -n "$PRESERVE_DIRS" ] && [ -n "$SOURCE_DIRS" ]; then
@@ -325,10 +329,11 @@ COMMIT_MSG="${PKG_NAME}@${PKG_VERSION}
 
 Built from ${SOURCE_SHA}"
 
-if DIST_PARENT=$(git rev-parse --verify HEAD 2>/dev/null); then
+if DIST_TIP=$(git rev-parse --verify HEAD 2>/dev/null); then
   # dist branch exists: create merge commit with two parents
-  # Parent 1: previous dist commit
+  # Parent 1: previous dist commit (or an earlier one, if source was force-pushed; see find_dist_parent)
   # Parent 2: source commit from main
+  DIST_PARENT=$(find_dist_parent "$DIST_TIP" "$SOURCE_SHA" "$ON_SOURCE_REWRITE")
   COMMIT=$(git commit-tree "$TREE" -p "$DIST_PARENT" -p "$SOURCE_SHA" -m "$COMMIT_MSG")
 else
   # First dist commit: single parent (source commit)

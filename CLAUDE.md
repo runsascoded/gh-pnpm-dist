@@ -94,6 +94,7 @@ jobs:
 | `pkg_include` | package.json fields to include from source | (see above) |
 | `pkg_exclude` | package.json fields to exclude | `''` |
 | `pkg_kvs` | JSON object of package.json overrides | `''` |
+| `on_source_rewrite` | Force-push handling: `rewrite` (walk back to shared ancestor), `preserve` (chain onto tip), `error` (fail) | `'rewrite'` |
 
 ## Implementation Tasks
 

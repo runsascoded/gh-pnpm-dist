@@ -7,6 +7,10 @@ SOURCE_SHA="${1:-$(git rev-parse HEAD)}"
 DIST_BRANCH="${DIST_BRANCH:-dist}"
 PKGS="${PKGS:-}"
 VERSION_SUFFIX="${VERSION_SUFFIX:-true}"
+ON_SOURCE_REWRITE="${ON_SOURCE_REWRITE:-rewrite}"
+
+# shellcheck source=./find-dist-parent.sh
+source "$(dirname "${BASH_SOURCE[0]}")/find-dist-parent.sh"
 
 if [ -z "$PKGS" ]; then
   echo "ERROR: PKGS must be set for monorepo mode"
@@ -120,7 +124,8 @@ COMMIT_MSG="dist: ${PKG_NAME} and $(echo "$PKGS" | tr ',' '\n' | wc -l | xargs) 
 
 Built from ${SOURCE_SHA}"
 
-if DIST_PARENT=$(git rev-parse --verify HEAD 2>/dev/null); then
+if DIST_TIP=$(git rev-parse --verify HEAD 2>/dev/null); then
+  DIST_PARENT=$(find_dist_parent "$DIST_TIP" "$SOURCE_SHA" "$ON_SOURCE_REWRITE")
   COMMIT=$(git commit-tree "$TREE" -p "$DIST_PARENT" -p "$SOURCE_SHA" -m "$COMMIT_MSG")
 else
   COMMIT=$(git commit-tree "$TREE" -p "$SOURCE_SHA" -m "$COMMIT_MSG")

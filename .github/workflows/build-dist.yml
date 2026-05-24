@@ -66,6 +66,10 @@ on:
         description: 'Monorepo mode: package paths, one per line'
         type: string
         default: ''
+      on_source_rewrite:
+        description: 'Force-push handling: "rewrite" (walk back to shared ancestor), "preserve" (chain onto tip), "error" (fail)'
+        type: string
+        default: 'rewrite'
 
 jobs:
   build-dist:
@@ -91,3 +95,4 @@ jobs:
           version_suffix: ${{ inputs.version_suffix }}
           prebuilt_dir: ${{ inputs.prebuilt_dir }}
           pkgs: ${{ inputs.pkgs }}
+          on_source_rewrite: ${{ inputs.on_source_rewrite }}

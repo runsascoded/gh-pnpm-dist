@@ -80,6 +80,7 @@ pds github <dep> dist
 | `pkg_include` | package.json fields to include from source | (see below) |
 | `pkg_exclude` | package.json fields to exclude | `''` |
 | `pkg_kvs` | JSON object of package.json overrides | `''` |
+| `on_source_rewrite` | How to handle force-pushes to source ref: `rewrite` (walk dist back to a shared ancestor and rebuild on top), `preserve` (chain onto current dist tip), `error` (fail if dist tip's source-parent isn't an ancestor of the new source SHA) | `'rewrite'` |
 
 Default `pkg_include` fields: `name,description,keywords,repository,author,license,homepage,bugs,exports`
 

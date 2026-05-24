@@ -66,6 +66,10 @@ inputs:
     description: 'Monorepo mode: package paths, one per line. Uses pnpm pack to resolve workspace/catalog refs, preserves directory structure on dist branch.'
     required: false
     default: ''
+  on_source_rewrite:
+    description: 'How to handle a force-push of the source ref. "rewrite" (default): walk back to the most recent dist commit whose source-parent is still an ancestor of the new source SHA, rebuild on top of it (dist ancestry mirrors source ancestry). "preserve": always chain onto the current dist tip (may retain references to abandoned source commits). "error": fail if the dist tip''s source-parent is not an ancestor of the new source SHA.'
+    required: false
+    default: 'rewrite'
 
 runs:
   using: 'composite'
@@ -171,6 +175,7 @@ runs:
         PKG_EXCLUDE: ${{ inputs.pkg_exclude }}
         PKG_KVS: ${{ inputs.pkg_kvs }}
         EXPORTS_MAP: ${{ inputs.exports_map }}
+        ON_SOURCE_REWRITE: ${{ inputs.on_source_rewrite }}
       run: ${{ github.action_path }}/scripts/build-dist.sh ${{ steps.prebuilt_info.outputs.source_sha || steps.info.outputs.source_sha }}
 
     - name: Commit to dist branch (monorepo mode)
@@ -180,6 +185,7 @@ runs:
         DIST_BRANCH: ${{ inputs.dist_branch || 'dist' }}
         PKGS: ${{ inputs.pkgs }}
         VERSION_SUFFIX: ${{ inputs.version_suffix }}
+        ON_SOURCE_REWRITE: ${{ inputs.on_source_rewrite }}
       run: ${{ github.action_path }}/scripts/build-dist-monorepo.sh ${{ steps.prebuilt_info.outputs.source_sha || steps.info.outputs.source_sha }}
 
     - name: Get dist SHA
