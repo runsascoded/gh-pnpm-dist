@@ -16,6 +16,8 @@ ON_SOURCE_REWRITE="${ON_SOURCE_REWRITE:-rewrite}"
 
 # shellcheck source=./find-dist-parent.sh
 source "$(dirname "${BASH_SOURCE[0]}")/find-dist-parent.sh"
+# shellcheck source=./merge-dist-package.sh
+source "$(dirname "${BASH_SOURCE[0]}")/merge-dist-package.sh"
 
 # Resolve preserve_dirs (with source_dirs deprecation)
 if [ -n "$PRESERVE_DIRS" ] && [ -n "$SOURCE_DIRS" ]; then
@@ -160,29 +162,10 @@ else
   echo "Fields to include from source: $FIELDS_TO_INCLUDE"
 
   if [ -f package.json.dist ]; then
-    # Merge: use dist structure but update key fields from source
-    jq -s --arg build_dir "$BUILD_DIR" --arg fields "$FIELDS_TO_INCLUDE" '
-      .[0] as $dist | .[1] as $src |
-      # Helper: transform ./$build_dir/... -> ./... in all strings
-      def transform_paths:
-        walk(
-          if type == "string" then
-            gsub("\\./\($build_dir)/"; "./") | gsub("\($build_dir)/"; "./")
-          else
-            .
-          end
-        );
-      # Split fields into array and build merge object
-      ($fields | split(",") | map(gsub("^\\s+|\\s+$"; ""))) as $field_list |
-      (reduce $field_list[] as $field ({}; . + (
-        if $src[$field] != null then
-          {($field): ($src[$field] | transform_paths)}
-        else
-          {}
-        end
-      ))) as $merge_obj |
-      $dist * $merge_obj | with_entries(select(.value != null))
-    ' package.json.dist package.json.source > package.json
+    # Merge: use dist structure but update key fields from source.
+    # In preserve_dirs mode, the merge must NOT flatten ./$BUILD_DIR/ paths,
+    # since the dist branch retains $BUILD_DIR as-is (mirrors first-run gate).
+    merge_dist_package_json package.json.dist package.json.source "$BUILD_DIR" "$FIELDS_TO_INCLUDE" "$PRESERVE_DIRS" > package.json
     rm -f package.json.dist package.json.source
   elif [ -f package.json.source ]; then
     # First run: transform source package.json for dist branch
