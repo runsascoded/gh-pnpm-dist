@@ -66,6 +66,10 @@ on:
         description: 'Monorepo mode: package paths, one per line'
         type: string
         default: ''
+      package_dir:
+        description: 'Single-package mode for a monorepo subdir: pack one package and flatten it to the dist branch root (git-pinnable). Mutually exclusive with pkgs.'
+        type: string
+        default: ''
       on_source_rewrite:
         description: 'Force-push handling: "rewrite" (walk back to shared ancestor), "preserve" (chain onto tip), "error" (fail)'
         type: string
@@ -95,4 +99,5 @@ jobs:
           version_suffix: ${{ inputs.version_suffix }}
           prebuilt_dir: ${{ inputs.prebuilt_dir }}
           pkgs: ${{ inputs.pkgs }}
+          package_dir: ${{ inputs.package_dir }}
           on_source_rewrite: ${{ inputs.on_source_rewrite }}

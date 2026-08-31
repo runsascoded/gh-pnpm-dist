@@ -118,6 +118,18 @@ For packages that don't use a `dist/` output folder (e.g., pure ESM packages wit
 
 This preserves the specified directories as-is instead of moving `dist/*` to root.
 
+### `package_dir` mode
+
+For a **single package inside a monorepo** that consumers pin by git SHA: `pkgs` mode keeps each package under its path beneath a private workspace root, so `github:owner/repo#<sha>` resolves to the workspace, not the package (git deps have no subdir selector). `package_dir` packs one subdir package and **flattens it to the dist branch root**, so the git dep resolves it directly:
+
+```yaml
+- uses: runsascoded/npm-dist@v1
+  with:
+    package_dir: packages/react   # → dist branch root IS @scope/react
+```
+
+Then `pnpm add github:owner/repo#<dist-sha>` installs that package. Mutually exclusive with `pkgs`.
+
 ## Used By
 
 - [aws-static-sso] ([usage][aws-static-sso-search]) - monorepo mode (`pkgs`)

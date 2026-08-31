@@ -6,14 +6,29 @@ set -e
 SOURCE_SHA="${1:-$(git rev-parse HEAD)}"
 DIST_BRANCH="${DIST_BRANCH:-dist}"
 PKGS="${PKGS:-}"
+PACKAGE_DIR="${PACKAGE_DIR:-}"
 VERSION_SUFFIX="${VERSION_SUFFIX:-true}"
 ON_SOURCE_REWRITE="${ON_SOURCE_REWRITE:-rewrite}"
 
 # shellcheck source=./find-dist-parent.sh
 source "$(dirname "${BASH_SOURCE[0]}")/find-dist-parent.sh"
 
+# package_dir mode: a single subdir package, flattened to the dist branch ROOT
+# (its own package.json at root, no workspace wrapper) so a git dep resolves it
+# directly — `github:owner/repo#<sha>` → that package. Contrast `pkgs` mode,
+# which preserves each package's path under a private workspace root.
+FLATTEN=false
+if [ -n "$PACKAGE_DIR" ]; then
+  if [ -n "$PKGS" ]; then
+    echo "ERROR: set either package_dir or pkgs, not both"
+    exit 1
+  fi
+  PKGS="$PACKAGE_DIR"
+  FLATTEN=true
+fi
+
 if [ -z "$PKGS" ]; then
-  echo "ERROR: PKGS must be set for monorepo mode"
+  echo "ERROR: PKGS or PACKAGE_DIR must be set for monorepo mode"
   exit 1
 fi
 
@@ -25,10 +40,12 @@ echo "Packages: $PKGS"
 
 SHORT_SHA="${SOURCE_SHA:0:7}"
 
-# Use local .tmp directory for staging files across branch switch
-TMPDIR=".tmp-npm-dist"
-rm -rf "$TMPDIR"
-mkdir -p "$TMPDIR/dist-content"
+# Local staging dir. NB: not named TMPDIR — that is the OS/Node temp env var,
+# and setting it to a relative path redirects Node/pnpm temp writes into the CWD
+# (e.g. a nested .tmp-npm-dist under a packed package).
+STAGE_DIR=".tmp-npm-dist"
+rm -rf "$STAGE_DIR"
+mkdir -p "$STAGE_DIR/dist-content"
 
 # Pack each package
 IFS=',' read -ra PKG_PATHS <<< "$PKGS"
@@ -51,13 +68,19 @@ for pkg_path in "${PKG_PATHS[@]}"; do
     exit 1
   fi
 
-  # Extract to dist-content preserving path structure
-  mkdir -p "$TMPDIR/dist-content/$pkg_path"
-  tar -xzf "$tarball" -C "$TMPDIR/dist-content/$pkg_path" --strip-components=1
+  # Extract to dist-content. package_dir mode flattens to the root; monorepo
+  # mode preserves the package's path.
+  if [ "$FLATTEN" = "true" ]; then
+    dest="$STAGE_DIR/dist-content"
+  else
+    dest="$STAGE_DIR/dist-content/$pkg_path"
+  fi
+  mkdir -p "$dest"
+  tar -xzf "$tarball" -C "$dest" --strip-components=1
 
   # Update version suffix if enabled
   if [ "$VERSION_SUFFIX" = "true" ]; then
-    pkg_json="$TMPDIR/dist-content/$pkg_path/package.json"
+    pkg_json="$dest/package.json"
     if [ -f "$pkg_json" ]; then
       pkg_version=$(jq -r .version "$pkg_json")
       dist_version="${pkg_version}-dist.${SHORT_SHA}"
@@ -71,9 +94,11 @@ for pkg_path in "${PKG_PATHS[@]}"; do
   rm -f "$tarball"
 done
 
-# Create root package.json for the dist branch
-repo_name=$(jq -r .name package.json 2>/dev/null || echo "monorepo")
-cat > "$TMPDIR/dist-content/package.json" << EOF
+# Create a workspace root package.json for the dist branch — but not in
+# package_dir mode, where the single package's own package.json IS the root.
+if [ "$FLATTEN" != "true" ]; then
+  repo_name=$(jq -r .name package.json 2>/dev/null || echo "monorepo")
+  cat > "$STAGE_DIR/dist-content/package.json" << EOF
 {
   "name": "${repo_name}-dist",
   "private": true,
@@ -81,12 +106,13 @@ cat > "$TMPDIR/dist-content/package.json" << EOF
   "repository": $(jq .repository package.json 2>/dev/null || echo '{}')
 }
 EOF
+fi
 
 # Reset any build-generated changes and clean untracked build artifacts
 # before checkout. Untracked files (e.g. client/dist/) created by prior
 # build steps conflict with tracked files on the dist branch.
 git checkout -- . 2>/dev/null || true
-git clean -fd -e "$TMPDIR" 2>/dev/null || true
+git clean -fd -e "$STAGE_DIR" 2>/dev/null || true
 rm -rf node_modules
 
 # Fetch dist branch if it exists
@@ -102,13 +128,13 @@ git config user.email "github-actions[bot]@users.noreply.github.com"
 
 # Remove everything (preserve our tmpdir)
 git rm -rf . 2>/dev/null || true
-git clean -fdx -e "$TMPDIR"
+git clean -fdx -e "$STAGE_DIR"
 
 # Copy dist content to root
-cp -r "$TMPDIR/dist-content"/* .
+cp -r "$STAGE_DIR/dist-content"/* .
 
 # Clean up tmpdir
-rm -rf "$TMPDIR"
+rm -rf "$STAGE_DIR"
 
 # Stage all changes
 git add -A
@@ -120,9 +146,15 @@ PKG_NAME=$(jq -r .name "$first_pkg/package.json" 2>/dev/null || echo "monorepo")
 # Create commit with proper parent(s)
 TREE=$(git write-tree)
 
-COMMIT_MSG="dist: ${PKG_NAME} and $(echo "$PKGS" | tr ',' '\n' | wc -l | xargs) packages
+if [ "$FLATTEN" = "true" ]; then
+  COMMIT_MSG="dist: ${PKG_NAME}
 
 Built from ${SOURCE_SHA}"
+else
+  COMMIT_MSG="dist: ${PKG_NAME} and $(echo "$PKGS" | tr ',' '\n' | wc -l | xargs) packages
+
+Built from ${SOURCE_SHA}"
+fi
 
 if DIST_TIP=$(git rev-parse --verify HEAD 2>/dev/null); then
   DIST_PARENT=$(find_dist_parent "$DIST_TIP" "$SOURCE_SHA" "$ON_SOURCE_REWRITE")
