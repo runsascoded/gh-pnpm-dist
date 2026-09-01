@@ -139,9 +139,16 @@ rm -rf "$STAGE_DIR"
 # Stage all changes
 git add -A
 
-# Get first package info for commit message
-first_pkg=$(echo "$PKGS" | cut -d',' -f1 | xargs)
-PKG_NAME=$(jq -r .name "$first_pkg/package.json" 2>/dev/null || echo "monorepo")
+# Get the package name for the commit message. In FLATTEN (package_dir) mode
+# the working tree has already been replaced with the flattened dist-content,
+# so the manifest is at ./package.json — reading the original source path
+# (packages/foo/package.json) would fail and fall back to "monorepo".
+if [ "$FLATTEN" = "true" ]; then
+  PKG_NAME=$(jq -r .name package.json 2>/dev/null || echo "package")
+else
+  first_pkg=$(echo "$PKGS" | cut -d',' -f1 | xargs)
+  PKG_NAME=$(jq -r .name "$first_pkg/package.json" 2>/dev/null || echo "monorepo")
+fi
 
 # Create commit with proper parent(s)
 TREE=$(git write-tree)
