@@ -18,6 +18,8 @@ ON_SOURCE_REWRITE="${ON_SOURCE_REWRITE:-rewrite}"
 source "$(dirname "${BASH_SOURCE[0]}")/find-dist-parent.sh"
 # shellcheck source=./merge-dist-package.sh
 source "$(dirname "${BASH_SOURCE[0]}")/merge-dist-package.sh"
+# shellcheck source=./check-dist-branch.sh
+source "$(dirname "${BASH_SOURCE[0]}")/check-dist-branch.sh"
 
 # Resolve preserve_dirs (with source_dirs deprecation)
 if [ -n "$PRESERVE_DIRS" ] && [ -n "$SOURCE_DIRS" ]; then
@@ -93,6 +95,9 @@ fi
 
 # Remove node_modules before checkout (it would conflict)
 rm -rf node_modules
+
+# Abort early on a git dir/file conflict (e.g. dist/treemap while a bare dist exists)
+check_dist_branch "$DIST_BRANCH" origin
 
 # Fetch dist branch if it exists
 DIST_EXISTS=false

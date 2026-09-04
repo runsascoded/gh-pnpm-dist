@@ -72,7 +72,8 @@ pds github <dep> dist
 | `node_version` | Node.js version | `'20'` |
 | `pnpm_version` | pnpm version (only if pnpm detected) | `'10'` |
 | `build_command` | Build command to run | Auto-detect |
-| `dist_branch` | Name of dist branch | `'dist'` |
+| `dist_branch` | Name of dist branch (explicit value wins over `dist_prefix`) | `''` → `dist` |
+| `dist_prefix` | Namespace convenience: derive `<prefix>/<pkg>` when `dist_branch` is unset (see [Namespaced dist branches](#namespaced-dist-branches-distpkg)) | `''` |
 | `build_dir` | Directory created by build command | `'dist'` |
 | `source_dirs` | Comma-separated directories to include (e.g., `"src,types"`) | `''` |
 | `extra_files` | Additional files to include (e.g., `"README.md,LICENSE"`) | `''` |
@@ -129,6 +130,29 @@ For a **single package inside a monorepo** that consumers pin by git SHA: `pkgs`
 ```
 
 Then `pnpm add github:owner/repo#<dist-sha>` installs that package. Mutually exclusive with `pkgs`.
+
+### Namespaced dist branches (`dist/<pkg>`)
+
+A repo that publishes **more than one** dist branch (e.g. a monorepo running one `package_dir` workflow per package) can namespace them under `dist/` — `dist/treemap`, `dist/react`, … — so `git branch --list 'dist/*'` enumerates every dist target and they cluster in listings. This is a naming convention, not a new mechanism: slashes are valid ref names, and consumers pin the resolved **SHA** (`github:owner/repo#<sha>`), so the branch name never reaches `package.json`.
+
+Two ways to opt in:
+
+```yaml
+# Explicit — the branch name verbatim:
+- uses: runsascoded/npm-dist@v1
+  with:
+    dist_branch: dist/treemap
+
+# Derived — dist_prefix + the package's basename (@rdub/treemap → treemap):
+- uses: runsascoded/npm-dist@v1
+  with:
+    package_dir: packages/treemap
+    dist_prefix: dist            # → dist/treemap
+```
+
+`dist_prefix` takes the package name's last segment (falling back to `basename(package_dir)`); an explicit `dist_branch` always wins over it.
+
+**The one constraint — git's directory/file (D/F) rule:** git stores each branch as a file under `refs/heads/`, so a bare `dist` branch (the file `refs/heads/dist`) and `dist/<anything>` (which needs `refs/heads/dist` to be a *directory*) **cannot coexist**. A repo currently on the default bare `dist` must first rename it (e.g. to `dist/<pkg>`) before adding another `dist/<x>` — its old SHA pins keep resolving, since SHAs are immutable. npm-dist detects this conflict before building and fails with an actionable message rather than a cryptic git error. For this reason the default stays bare `dist`; namespacing is opt-in.
 
 ## Used By
 

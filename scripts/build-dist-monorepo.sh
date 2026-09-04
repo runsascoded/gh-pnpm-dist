@@ -12,6 +12,8 @@ ON_SOURCE_REWRITE="${ON_SOURCE_REWRITE:-rewrite}"
 
 # shellcheck source=./find-dist-parent.sh
 source "$(dirname "${BASH_SOURCE[0]}")/find-dist-parent.sh"
+# shellcheck source=./check-dist-branch.sh
+source "$(dirname "${BASH_SOURCE[0]}")/check-dist-branch.sh"
 
 # package_dir mode: a single subdir package, flattened to the dist branch ROOT
 # (its own package.json at root, no workspace wrapper) so a git dep resolves it
@@ -114,6 +116,9 @@ fi
 git checkout -- . 2>/dev/null || true
 git clean -fd -e "$STAGE_DIR" 2>/dev/null || true
 rm -rf node_modules
+
+# Abort early on a git dir/file conflict (e.g. dist/treemap while a bare dist exists)
+check_dist_branch "$DIST_BRANCH" origin
 
 # Fetch dist branch if it exists
 if git fetch origin "$DIST_BRANCH:$DIST_BRANCH" 2>/dev/null; then
