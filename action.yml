@@ -23,13 +23,9 @@ inputs:
     required: false
     default: ''
   dist_branch:
-    description: 'Name of dist branch. Explicit value always wins over dist_prefix.'
+    description: 'Name of dist branch. Slashes are allowed (e.g. "dist/treemap") for the namespaced dist/<pkg> convention; see the README.'
     required: false
-    default: ''
-  dist_prefix:
-    description: 'Namespace convenience for multi-target repos: when set and dist_branch is unset, the branch becomes "<dist_prefix>/<basename>", where <basename> is the package name''s last segment (@rdub/treemap -> treemap), falling back to basename(package_dir). Default "dist" applies when neither is set. See the dist/<pkg> convention in the README.'
-    required: false
-    default: ''
+    default: 'dist'
   build_dir:
     description: 'Directory created by build command (moved to root on dist branch)'
     required: false
@@ -131,20 +127,6 @@ runs:
           echo "has_pkg_mgr=false" >> $GITHUB_OUTPUT
         fi
 
-    - name: Resolve dist branch
-      id: resolve
-      shell: bash
-      env:
-        DIST_BRANCH: ${{ inputs.dist_branch }}
-        DIST_PREFIX: ${{ inputs.dist_prefix }}
-        PACKAGE_DIR: ${{ inputs.package_dir }}
-        PKGS: ${{ inputs.pkgs }}
-      run: |
-        source "${{ github.action_path }}/scripts/resolve-dist-branch.sh"
-        RESOLVED=$(resolve_dist_branch "$DIST_BRANCH" "$DIST_PREFIX" "$PACKAGE_DIR" "$PKGS")
-        echo "dist_branch=$RESOLVED" >> "$GITHUB_OUTPUT"
-        echo "Resolved dist branch: $RESOLVED"
-
     - name: Setup pnpm (with version)
       if: inputs.prebuilt_dir == '' && steps.info.outputs.pm == 'pnpm' && steps.info.outputs.has_pkg_mgr != 'true'
       uses: pnpm/action-setup@v5
@@ -187,7 +169,7 @@ runs:
       if: inputs.pkgs == '' && inputs.package_dir == ''
       shell: bash
       env:
-        DIST_BRANCH: ${{ steps.resolve.outputs.dist_branch }}
+        DIST_BRANCH: ${{ inputs.dist_branch || 'dist' }}
         BUILD_DIR: ${{ inputs.prebuilt_dir || inputs.build_dir }}
         PRESERVE_DIRS: ${{ inputs.preserve_dirs }}
         SOURCE_DIRS: ${{ inputs.source_dirs }}
@@ -204,7 +186,7 @@ runs:
       if: inputs.pkgs != '' || inputs.package_dir != ''
       shell: bash
       env:
-        DIST_BRANCH: ${{ steps.resolve.outputs.dist_branch }}
+        DIST_BRANCH: ${{ inputs.dist_branch || 'dist' }}
         PKGS: ${{ inputs.pkgs }}
         PACKAGE_DIR: ${{ inputs.package_dir }}
         VERSION_SUFFIX: ${{ inputs.version_suffix }}
@@ -218,7 +200,7 @@ runs:
 
     - name: Push dist branch
       shell: bash
-      run: git push origin ${{ steps.resolve.outputs.dist_branch }} --force-with-lease
+      run: git push origin ${{ inputs.dist_branch || 'dist' }} --force-with-lease
 
     - name: Output dist branch info
       shell: bash
@@ -226,7 +208,7 @@ runs:
         PKGS: ${{ inputs.pkgs }}
       run: |
         PKG_NAME="${{ steps.prebuilt_info.outputs.pkg_name || steps.info.outputs.pkg_name }}"
-        DIST_BRANCH="${{ steps.resolve.outputs.dist_branch }}"
+        DIST_BRANCH="${{ inputs.dist_branch || 'dist' }}"
         DIST_SHA="${{ steps.dist.outputs.sha }}"
         SOURCE_SHA="${{ steps.prebuilt_info.outputs.source_sha || steps.info.outputs.source_sha }}"
         REPO="${{ github.repository }}"

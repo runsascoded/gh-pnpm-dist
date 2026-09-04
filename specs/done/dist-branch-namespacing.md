@@ -41,7 +41,7 @@ single-target repo — their next build would try to create `dist/<pkg>` while
 their bare `dist` exists → D/F failure — and would break anyone who pinned the
 branch *name* `#dist` (rare, but real). The default must stay `dist`.
 
-## Asks (all implemented)
+## Asks (#1 + #2 shipped; #3 built then dropped as low-value)
 
 ### 1. D/F guardrail (highest value) — done
 
@@ -70,49 +70,47 @@ their gl copies:
 ### 2. Document the convention — done
 
 New **“Namespaced dist branches (`dist/<pkg>`)”** section in both `gh/README.md`
-and `gl/README.md` (under `package_dir` / monorepo mode), plus `dist_prefix` rows
-in the inputs/variables tables. Explains the D/F rule, that a legacy bare `dist`
+and `gl/README.md` (under `package_dir` / monorepo mode), pointing at
+`dist_branch: dist/treemap`. Explains the D/F rule, that a legacy bare `dist`
 must be renamed (old SHA pins keep resolving), and that the default stays bare
 `dist`.
 
-### 3. Optional convenience: derive `dist/<pkg>` — done
+### 3. Optional convenience: derive `dist/<pkg>` — implemented, then reverted
 
-New **`scripts/resolve-dist-branch.sh`** (sourceable, unit-tested):
+Built as `resolve-dist-branch.sh` (a `dist_prefix` input deriving
+`<prefix>/<basename>` from the package name) with a resolve step in `action.yml`
+and a resolve block in the gl template, plus a 13-case unit test — then **removed**
+before final release.
 
-- `resolve_dist_branch <dist_branch> <dist_prefix> <package_dir> <pkgs>`:
-  explicit `dist_branch` wins verbatim; else if `dist_prefix` set, derive
-  `<prefix>/<basename>` where `<basename>` = package name's last segment
-  (`@rdub/treemap` → `treemap`), reading the right `package.json`
-  (`package_dir` → first of `pkgs` → root), falling back to `basename(package_dir)`
-  then `dist`; else the bare `dist`. Idempotent (re-resolving a set branch is a
-  no-op).
-- **gh**: new `dist_prefix` input (default `''`); `dist_branch` default changed
-  `'dist'` → `''` so resolution can distinguish unset from explicit. A new
-  **Resolve dist branch** step computes the branch (output `steps.resolve.outputs.dist_branch`);
-  the commit/push/output steps all consume it.
-- **gl**: new `DIST_PREFIX` variable (default `""`); `DIST_BRANCH` default `dist`
-  → `""`. The `script:` block sources `resolve-dist-branch.sh` and `export`s the
-  resolved `DIST_BRANCH` before building/pushing.
+Reason: for a single package it gains nothing over `dist_branch: dist/treemap` —
+it splits one known string (`dist/treemap`) into a prefix input + a basename
+auto-derived from the package name, in exchange for added surface (a script, a
+resolve step, and a `dist_branch` default flip `'dist'`→`''` to distinguish unset
+from explicit). It would only pay off in a matrix/templated workflow building N
+packages from one file, but npm-dist consumers write one workflow per package and
+just set `dist_branch` inline. The spec flagged #3 as optional and the disk-tree
+driver needed only #1–2; the explicit `dist_branch` (which already accepts
+slashes — pre-existing) fully covers the use case.
+
+Net of this spec: **#1 (guardrail) + #2 (docs) only.** `dist_branch` keeps its
+`'dist'` default; slashed names remain supported as they always were.
 
 ### Tests
 
 - `tests/test-check-dist-branch.sh` (11 cases): both conflict directions, exact
-  messages, empty heads, `dist` vs unrelated `dist2`.
-- `tests/test-resolve-dist-branch.sh` (13 cases): basename derivation, explicit
-  wins, prefix + `package_dir` / `pkgs` / root, trailing-slash prefix, missing
-  `package.json` fallback.
-- Copied to gl; all pass in both. Existing `merge`/`find-dist-parent` tests still green.
+  messages, empty heads, `dist` vs unrelated `dist2`. Copied to gl; passes in
+  both. Existing `merge`/`find-dist-parent` tests still green.
 
 ## Non-goals
 
-- No change to the effective default branch (`dist`), for the back-compat reason
-  above — the empty-string default resolves to `dist`, byte-for-byte equivalent
-  for existing consumers.
+- No change to the default branch (`dist`) or its handling — `dist_branch`
+  keeps its `'dist'` default; the guardrail only fires on a real D/F conflict.
 - No change to how consumers pin (still resolved SHAs).
 
 ## Consumer note (disk-tree side, already done)
 
 disk-tree's `build-dist.yml` sets `dist_branch: dist/treemap` explicitly and
-renamed its legacy `dist` branch → `dist/react` to clear the D/F conflict. With
-ask #3 landed, disk-tree can optionally drop the explicit `dist_branch` for
-`dist_prefix: dist` (`package_dir: packages/treemap` → `dist/treemap`).
+renamed its legacy `dist` branch → `dist/react` to clear the D/F conflict. That
+one field is the whole story — it worked against the pre-existing npm-dist (no
+change needed to unblock disk-tree); this spec only adds the guardrail + docs
+around it.
